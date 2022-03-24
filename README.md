@@ -5,12 +5,12 @@ We are going to develop a parallel version of a procedural 2-dimensional dungeon
 # Background
 Many 2-dimensional video games use “dungeons” as their setting. Players move through rooms in the dungeon as they play through the game. Each room is often a different size or shape, and rooms are connected by hallways or other smaller rooms.
 
-![Example dungeon map from “Enter the Gungeon”, https://www.boristhebrave.com/2019/07/28/dungeon-generation-in-enter-the-gungeon/](https://www.boristhebrave.com/wp-content/uploads/2019/07/gungeon_castle.png)
+![Example dungeon map from “Enter the Gungeon”, https://www.boristhebrave.com/2019/07/28/dungeon-generation-in-enter-the-gungeon/](https://www.boristhebrave.com/wp-content/uploads/2019/07/gungeon_castle.png)  
 *Example dungeon map from “Enter the Gungeon”, https://www.boristhebrave.com/2019/07/28/dungeon-generation-in-enter-the-gungeon/*
 
 Some games use algorithms to generate dungeons procedurally. One algorithm we found for generating dungeons can be found here: https://www.gamedeveloper.com/programming/procedural-dungeon-generation-algorithm. It is this algorithm that we want to accelerate by developing a parallel solution.
 
-![Example generated map using our chosen algorithm](https://i.imgur.com/bSV1gpV.png)
+![Example generated map using our chosen algorithm](https://i.imgur.com/bSV1gpV.png)  
 *Example generated map using our chosen algorithm*
 
 The algorithm involves many sequential steps. At a high level, these steps are:
@@ -70,20 +70,20 @@ The GHC cluster machines fit our workload very well. They contain powerful but c
 
 The GHC cluster machines allow us to attempt a variety of parallel implementations. We will be able to work with both CPU and GPU resources. Since we also want to make a GUI for our project, the GHC machines should allow us to develop one without much hassle.
 # Schedule
-**Mar 21 - Mar 27**
+**Mar 21 - Mar 27**  
 Project proposal
 
-**Mar 28 - Apr 3**
+**Mar 28 - Apr 3**  
 Sequential implementation, simple output visualization
 
-**Apr 4 - Apr 10**
+**Apr 4 - Apr 10**  
 Parallel implementation on GPU, checkpoint
 
-**Apr 11 - Apr 17**
+**Apr 11 - Apr 17**  
 Parallel implementation on CPU/ISPC
 
-**Apr 18 - Apr 24**
+**Apr 18 - Apr 24**  
 Interactive GUI, performance analysis, final report
 
-**Apr 25 - Apr 29**
+**Apr 25 - Apr 29**  
 Final report, poster,  and presentation
