@@ -91,7 +91,7 @@ Final report, poster,  and presentation
 
 # MILESTONE
 ## Work Completed
-We did not have as much time to work on our project as we expected, and have not met the deliverables stated on our schedule. So far, we are partially done with the sequential implementation and are working on visualizing our partial output. We think producing a nice visualization early on would help accelerate later development stages. Our unfamiliarity with graphical visualization using C++ has slowed us down quite a bit.
+We did not have as much time to work on our project as we expected, and have not met the deliverables stated on our schedule. So far, we are partially done with the sequential implementation and are working on visualizing our partial output. We think producing a nice visualization early on would help accelerate later development stages. Our unfamiliarity with graphical visualization using C++ has slowed us down quite a bit. We have managed to install a graphics library onto the AFS machines and hope to make faster progress soon.
 
 ## Updated Goals
 We still believe we can meet all of our 100% goals, and we hope to add parameter tweaking to our visualization as well. We will not be planning to accomplish anything in 3D.
