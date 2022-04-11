@@ -71,22 +71,22 @@ The GHC cluster machines fit our workload very well. They contain powerful but c
 The GHC cluster machines allow us to attempt a variety of parallel implementations. We will be able to work with both CPU and GPU resources. Since we also want to make a GUI for our project, the GHC machines should allow us to develop one without much hassle.
 
 # Schedule
-**Mar 21 - Mar 27**
+**Mar 21 - Mar 27**  
 Project proposal
 
-**Mar 28 - Apr 3**
+**Mar 28 - Apr 3**  
 Sequential implementation, simple output visualization
 
-**Apr 4 - Apr 10**
+**Apr 4 - Apr 10**  
 Parallel implementation on GPU, checkpoint
 
-**Apr 11 - Apr 17**
+**Apr 11 - Apr 17**  
 Parallel implementation on CPU/ISPC
 
-**Apr 18 - Apr 24**
+**Apr 18 - Apr 24**  
 Interactive GUI, performance analysis, final report
 
-**Apr 25 - Apr 29**
+**Apr 25 - Apr 29**  
 Final report, poster,  and presentation
 
 # MILESTONE
@@ -109,23 +109,23 @@ Our main demo will be a visualization of dungeon generation given certain parame
 We are somewhat concerned about implementing the more complicated graph algorithms using CUDA. There are some examples online that could help us, however, so we hope this is not much of an issue.
 
 # Updated Schedule
-**Mar 21 - Mar 27**
+**Mar 21 - Mar 27**  
 Project proposal
 
-**Mar 28 - Apr 11**
+**Mar 28 - Apr 11**  
 Sequential implementation, simple output visualization
 
-**Apr 12 - Apr 15**
+**Apr 12 - Apr 15**  
 Sequential implementation (Larry), simple output visualization (Aleksander)
 
-**Apr 16 - Apr 18**
+**Apr 16 - Apr 18**  
 Parallel implementation on GPU/CUDA (Larry), Parallel implementation on CPU/ISPC (Aleksander)
 
-**Apr 18 - Apr 22**
+**Apr 18 - Apr 22**  
 Parallel implementation on GPU/CUDA (Larry), Parallel implementation on CPU/ISPC (Aleksander)
 
-**Apr 23 - Apr 25**
+**Apr 23 - Apr 25**  
 Interactive GUI (Aleksandr), performance analysis (Larry)
 
-**Apr 26 - Apr 29**
+**Apr 26 - Apr 29**  
 Final report, poster, and presentation (both)
