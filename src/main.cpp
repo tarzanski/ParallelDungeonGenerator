@@ -8,6 +8,10 @@
 #include "main.h"
 #include <SDL.h>
 
+#define SCREEN_WIDTH 640
+
+#define SCREEN_HEIGHT 480
+
 
 int main(int argc, char** argv) {
 
@@ -19,13 +23,17 @@ int main(int argc, char** argv) {
 
     // parse arguments if using a gui
 
-    //generate(5, 25);
+    int roomNum = 50;
+
+    rectangle_t *rooms = generate(roomNum/10, 25);
 
     display disp;
 
-    return disp.OnExecute();
+    int ecode = disp.OnExecute(rooms, roomNum);
 
-    return 0;
+    free(rooms);
+
+    return ecode;
 }
 
 
@@ -34,29 +42,7 @@ int main(int argc, char** argv) {
  */
 display::display() {
     running = true;
-}
-
-/*
- * Execution Loop
- */
-int display::OnExecute() {
-    if (OnInit() == false)
-        return -1;
-    
-    SDL_Event Event;
-
-    while (running) {
-        while (SDL_PollEvent(&Event)) {
-            OnEvent(&Event);
-        }
-
-        OnLoop();
-        OnRender();
-    } 
-
-    OnCleanup();
-
-    return 0;
+    currRoomNumber = 0;
 }
 
 /*
@@ -71,7 +57,7 @@ bool display::OnInit() {
     if((sdlwindow = SDL_CreateWindow("Dungeon Generator Visualizer",
                                      SDL_WINDOWPOS_UNDEFINED,
                                      SDL_WINDOWPOS_UNDEFINED,
-                                     640, 480,
+                                     SCREEN_WIDTH, SCREEN_HEIGHT,
                                      SDL_WINDOW_OPENGL)) == NULL) {
         printf("Error with creating window\n");
         return false;
@@ -84,10 +70,82 @@ bool display::OnInit() {
         return false;
     }
 
-    SDL_SetRenderDrawColor(renderer,0x38,0x38,0x38,0xFF);
+    SDL_SetRenderDrawColor(renderer,0x00,0x00,0x00,0xFF);
     SDL_RenderClear(renderer);
     
     return true;
+}
+
+/*
+ * Generating the background image
+ */
+void display::genBackround() {
+    gRoom = SDL_LoadBMP("assets/room_proto_1.bmp");
+    if (gRoom == NULL) {
+        printf("Error loading bmp file\n");
+    }
+
+    gGrey = SDL_LoadBMP("assets/grey_square.bmp");
+    if (gGrey == NULL) {
+        printf("Error loading bmp file\n");
+    }
+
+    // SDL_BlitSurface(gRed, NULL, gScreenSurface, NULL);
+
+    for (int x = 5; x < SCREEN_WIDTH; x += 10) {
+        SDL_Rect moverect;
+
+        moverect.x = x;
+        moverect.y = 0;
+        moverect.w = 1;
+        moverect.h = SCREEN_HEIGHT;
+
+        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+    }
+
+    for (int y = 5; y < SCREEN_HEIGHT; y += 10) {
+        SDL_Rect moverect;
+
+        moverect.x = 0;
+        moverect.y = y;
+        moverect.w = SCREEN_WIDTH;
+        moverect.h = 1;
+
+        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+    }
+
+    SDL_UpdateWindowSurface(sdlwindow);
+}
+
+/*
+ * Execution Loop
+ */
+int display::OnExecute(rectangle_t *rooms, int roomNum) {
+    if (OnInit() == false)
+        return -1;
+
+    genBackround();
+    
+    SDL_Event Event;
+
+    while (running) {
+        while (SDL_PollEvent(&Event)) {
+            OnEvent(&Event);
+        }
+        if (currRoomNumber < roomNum) {
+
+            OnRender(rooms, roomNum);
+            
+            // 2 seconds between rooms
+            SDL_Delay(500);
+            
+            OnLoop();
+        }
+    } 
+
+    OnCleanup();
+
+    return 0;
 }
 
 /*
@@ -103,23 +161,32 @@ void display::OnEvent(SDL_Event* Event) {
  * Extra loop function that tutorial had
  */
 void display::OnLoop() {
-    
+    currRoomNumber++;
 }
 
 /*
  * Render fuction
  */
-void display::OnRender() {
+void display::OnRender(rectangle_t *rooms, int roomNum) {
 
-    // each pixel represents one unit of distance in both x and y
+    // right now just displaying the first room
 
+    // using 0 instead of curr_room_number
 
-    gRed = SDL_LoadBMP("assets/red_square.bmp");
-    if (gRed == NULL) {
-        printf("Error loading bmp file\n");
-    }
+    SDL_Rect roomRect;
 
-    SDL_BlitSurface(gRed, NULL, gScreenSurface, NULL);
+    roomRect.x = (int)rooms[currRoomNumber].center.x + (SCREEN_WIDTH / 2);
+    roomRect.y = (int)rooms[currRoomNumber].center.y + (SCREEN_HEIGHT / 2);
+    roomRect.h = (int)rooms[currRoomNumber].height;
+    roomRect.w = (int)rooms[currRoomNumber].width;
+
+    roomRect.h = (roomRect.h < 0) ? (roomRect.h * -1) : roomRect.h;
+    roomRect.w = (roomRect.w < 0) ? (roomRect.w * -1) : roomRect.w;
+
+    roomRect.h *= 5;
+    roomRect.w *= 5;
+
+    SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
 
     SDL_UpdateWindowSurface(sdlwindow);
 
@@ -130,7 +197,9 @@ void display::OnRender() {
  * Closing function called before exit
  */
 void display::OnCleanup() {
-    SDL_FreeSurface(gRed);
+    SDL_FreeSurface(gRoom);
+
+    SDL_FreeSurface(gGrey);
 
     SDL_DestroyWindow(sdlwindow);
 

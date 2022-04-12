@@ -5,17 +5,24 @@ class display {
     private:
         bool running;
 
+        int currRoomNumber;
+
         SDL_Window* sdlwindow;
 
         SDL_Surface* gScreenSurface;
 
-        SDL_Surface* gRed;
+        SDL_Surface* gRoom;
+
+        SDL_Surface* gGrey;
+
+        
+
 
     public:
         // constructor
         display();
 
-        int OnExecute();
+        int OnExecute(rectangle_t* rooms, int roomNum);
  
         bool OnInit();
  
@@ -23,7 +30,11 @@ class display {
  
         void OnLoop();
  
-        void OnRender();
+        void OnRender(rectangle_t *rooms, int roomNum);
  
         void OnCleanup();
+
+        // other functions
+
+        void genBackround();
 };

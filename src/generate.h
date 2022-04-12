@@ -10,4 +10,4 @@ typedef struct {
     float width;
 } rectangle_t;
 
-int generate(int numMainRooms, int radius);
+rectangle_t *generate(int numMainRooms, int radius);

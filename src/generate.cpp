@@ -32,7 +32,7 @@ point_t getRandomPointInCircle(float radius) {
 /* 
  * Top function of sequential algorithm, called by main in main.cpp
  */
-int generate(int numMainRooms, int radius) {
+rectangle_t *generate(int numMainRooms, int radius) {
     int totalRooms = numMainRooms * 10;
     int mean_width = 10.0;
     int stddev_width = 10.0;
@@ -57,6 +57,6 @@ int generate(int numMainRooms, int radius) {
         printf("width: %f, height: %f\n", rooms[i].width, rooms[i].height);
     }
 
-    free(rooms);
-    return 0;
+    //free(rooms);
+    return rooms;
 }
