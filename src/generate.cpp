@@ -29,21 +29,23 @@ point_t getRandomPointInCircle(float radius) {
     return p;
 }
 
-/* 
+/*
  * Top function of sequential algorithm, called by main in main.cpp
  */
 rectangle_t *generate(int numMainRooms, int radius) {
     int totalRooms = numMainRooms * 10;
-    int mean_width = 10.0;
-    int stddev_width = 10.0;
+    int mean_width = 10;
+    float min_width = 2;
+    int stddev_width = 10;
 
-    int mean_height = 10.0;
-    int stddev_height = 10.0;
+    int mean_height = 10;
+    float min_height = 2;
+    int stddev_height = 10;
 
     std::default_random_engine generator;
-    std::normal_distribution<double> width_distribution(mean_width, stddev_width);
-    std::normal_distribution<double> height_distribution(mean_height, stddev_height);
-    
+    std::normal_distribution<float> width_distribution(mean_width, stddev_width);
+    std::normal_distribution<float> height_distribution(mean_height, stddev_height);
+
     // create data structures
     rectangle_t *rooms = (rectangle_t *)malloc(sizeof(rectangle_t) * totalRooms);
 
@@ -51,12 +53,15 @@ rectangle_t *generate(int numMainRooms, int radius) {
     for (int i = 0; i < totalRooms; i++) {
         point_t center = getRandomPointInCircle(radius);
         rooms[i].center = center;
-        rooms[i].width = width_distribution(generator);
-        rooms[i].height = height_distribution(generator);
+        while (rooms[i].width < min_width) {
+            rooms[i].width = std::max(min_width, width_distribution(generator));
+        }
+        while (rooms[i].height < min_height) {
+            rooms[i].height = std::max(min_height, height_distribution(generator));
+        }
         printf("center: %f, %f\n", center.x, center.y);
         printf("width: %f, height: %f\n", rooms[i].width, rooms[i].height);
     }
 
-    //free(rooms);
     return rooms;
 }
