@@ -4,13 +4,10 @@
 #include <cstdlib>
 #include <cstdio>
 #include <random>
+
 #include "generate.h"
 #include "main.h"
 #include <SDL.h>
-
-#define SCREEN_WIDTH 640
-
-#define SCREEN_HEIGHT 480
 
 
 int main(int argc, char** argv) {
@@ -82,17 +79,22 @@ bool display::OnInit() {
 void display::genBackround() {
     gRoom = SDL_LoadBMP("assets/room_proto_1.bmp");
     if (gRoom == NULL) {
-        printf("Error loading bmp file\n");
+        printf("Error loading bmp file (room)\n");
     }
 
     gGrey = SDL_LoadBMP("assets/grey_square.bmp");
     if (gGrey == NULL) {
-        printf("Error loading bmp file\n");
+        printf("Error loading bmp file (grey)\n");
+    }
+
+    gRed = SDL_LoadBMP("assets/red_square.bmp");
+    if (gRed == NULL) {
+        printf("Error loading bmp file (red)\n");
     }
 
     // SDL_BlitSurface(gRed, NULL, gScreenSurface, NULL);
 
-    for (int x = 5; x < SCREEN_WIDTH; x += 10) {
+    for (int x = 0; x < SCREEN_WIDTH; x += PIX_PER_UNIT) {
         SDL_Rect moverect;
 
         moverect.x = x;
@@ -103,7 +105,7 @@ void display::genBackround() {
         SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
     }
 
-    for (int y = 5; y < SCREEN_HEIGHT; y += 10) {
+    for (int y = 0; y < SCREEN_HEIGHT; y += PIX_PER_UNIT) {
         SDL_Rect moverect;
 
         moverect.x = 0;
@@ -136,8 +138,7 @@ int display::OnExecute(rectangle_t *rooms, int roomNum) {
 
             OnRender(rooms, roomNum);
             
-            // 2 seconds between rooms
-            SDL_Delay(500);
+            SDL_Delay(125);
             
             OnLoop();
         }
@@ -155,6 +156,9 @@ void display::OnEvent(SDL_Event* Event) {
     if (Event->type == SDL_QUIT) {
         running = false;
     }
+    // if (Event->type == SDL_KEYDOWN) {
+    //     currRoomNumber++;
+    // }
 }
 
 /*
@@ -169,24 +173,46 @@ void display::OnLoop() {
  */
 void display::OnRender(rectangle_t *rooms, int roomNum) {
 
-    // right now just displaying the first room
-
-    // using 0 instead of curr_room_number
-
     SDL_Rect roomRect;
 
-    roomRect.x = (int)rooms[currRoomNumber].center.x + (SCREEN_WIDTH / 2);
-    roomRect.y = (int)rooms[currRoomNumber].center.y + (SCREEN_HEIGHT / 2);
-    roomRect.h = (int)rooms[currRoomNumber].height;
-    roomRect.w = (int)rooms[currRoomNumber].width;
+    float roomW = rooms[currRoomNumber].width;
+    float roomH = rooms[currRoomNumber].height;
 
-    roomRect.h = (roomRect.h < 0) ? (roomRect.h * -1) : roomRect.h;
-    roomRect.w = (roomRect.w < 0) ? (roomRect.w * -1) : roomRect.w;
+    // taking abs of width and height
+    roomW = (roomW < 0) ? (roomW * -1) : roomW;
+    roomH = (roomH < 0) ? (roomH * -1) : roomH;
 
-    roomRect.h *= 5;
-    roomRect.w *= 5;
+    roomRect.h = (int)roomH * PIX_PER_UNIT;
+    roomRect.w = (int)roomW * PIX_PER_UNIT;
+
+    // calculating the room centers based on the number of pixels per unit
+    float units_x = rooms[currRoomNumber].center.x;
+    float units_y = rooms[currRoomNumber].center.y;
+
+    roomRect.x = ((int)(units_x) * PIX_PER_UNIT) - roomRect.w/2;
+    roomRect.y = ((int)( units_y) * PIX_PER_UNIT) - roomRect.h/2;
+
+    // final alignment to move origin to middle of the window
+    roomRect.x += SCREEN_WIDTH / 2;
+    roomRect.y += SCREEN_HEIGHT / 2;
 
     SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
+
+    SDL_Rect dotRect;
+
+    // draw all the room centers as a small red dot up to curr room
+    for (int i = 0; i < currRoomNumber; i++) {
+
+        dotRect.h = PIX_PER_UNIT;
+        dotRect.w = PIX_PER_UNIT;
+
+
+
+        dotRect.x = ((int)(rooms[currRoomNumber].center.x) * PIX_PER_UNIT) + (SCREEN_WIDTH / 2) - dotRect.w/2;
+        dotRect.y = ((int)(rooms[currRoomNumber].center.y) * PIX_PER_UNIT) + (SCREEN_HEIGHT / 2) - dotRect.h/2;
+
+        SDL_BlitScaled(gRed, NULL, gScreenSurface, &dotRect);
+    }
 
     SDL_UpdateWindowSurface(sdlwindow);
 
