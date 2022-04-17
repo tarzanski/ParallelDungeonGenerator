@@ -26,7 +26,11 @@ int main(int argc, char** argv) {
 
     display disp;
 
+    printf("*****STARTING GUI*****\n");
+
     int ecode = disp.OnExecute(rooms, roomNum);
+
+    printf("***** CLOSING GUI*****\n");
 
     free(rooms);
 
@@ -77,9 +81,14 @@ bool display::OnInit() {
  * Generating the background image
  */
 void display::genBackround() {
-    gRoom = SDL_LoadBMP("assets/room_proto_1.bmp");
+    gRoom = SDL_LoadBMP("assets/room_proto_2.bmp");
     if (gRoom == NULL) {
         printf("Error loading bmp file (room)\n");
+    }
+
+    gSides = SDL_LoadBMP("assets/turq_square.bmp");
+    if (gSides == NULL) {
+        printf("Error loading bmp file (sides)\n");
     }
 
     gGrey = SDL_LoadBMP("assets/grey_square.bmp");
@@ -138,8 +147,6 @@ int display::OnExecute(rectangle_t *rooms, int roomNum) {
 
             OnRender(rooms, roomNum);
             
-            SDL_Delay(125);
-            
             OnLoop();
         }
     } 
@@ -166,6 +173,7 @@ void display::OnEvent(SDL_Event* Event) {
  */
 void display::OnLoop() {
     currRoomNumber++;
+    //SDL_Delay(125);
 }
 
 /*
@@ -189,8 +197,8 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
     float units_x = rooms[currRoomNumber].center.x;
     float units_y = rooms[currRoomNumber].center.y;
 
-    roomRect.x = ((int)(units_x) * PIX_PER_UNIT) - roomRect.w/2;
-    roomRect.y = ((int)( units_y) * PIX_PER_UNIT) - roomRect.h/2;
+    roomRect.x = ((int)(units_x) * PIX_PER_UNIT) - (((roomRect.w/2) / PIX_PER_UNIT) * PIX_PER_UNIT);
+    roomRect.y = ((int)( units_y) * PIX_PER_UNIT) - (((roomRect.h/2) / PIX_PER_UNIT) * PIX_PER_UNIT);
 
     // final alignment to move origin to middle of the window
     roomRect.x += SCREEN_WIDTH / 2;
@@ -198,15 +206,53 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
 
     SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
 
+    // printf("****** Room # %d\n", currRoomNumber);
+    // printf("top corner x: %d\n", roomRect.x);
+    // printf("top corner y: %d\n", roomRect.y);
+    // printf("width       : %d\n", roomRect.w);
+    // printf("height      : %d\n", roomRect.h);
+    // printf("real x (int): %d\n", (int)units_x);
+    // printf("real y (int): %d\n", (int)units_y);
+
+
+    /********* add sides to room *********/
+
+    SDL_Rect sideRect;
+
+    // left side
+    sideRect.x = roomRect.x;
+    sideRect.y = roomRect.y;
+    sideRect.h = roomRect.h;
+    sideRect.w = 1;
+
+    SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+
+    // top side
+    sideRect.h = 1;
+    sideRect.w = roomRect.w;
+
+    SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+
+    // bottom side
+    sideRect.y = roomRect.y + roomRect.h - 1; // not sure about -1????
+    
+    SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+
+    // right side
+    sideRect.x = roomRect.x + roomRect.w - 1;
+    sideRect.y = roomRect.y;
+    sideRect.h = roomRect.h;
+    sideRect.w = 1;
+
+    SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+
     SDL_Rect dotRect;
 
     // draw all the room centers as a small red dot up to curr room
     for (int i = 0; i < currRoomNumber; i++) {
 
-        dotRect.h = PIX_PER_UNIT;
-        dotRect.w = PIX_PER_UNIT;
-
-
+        dotRect.h = 3;
+        dotRect.w = 3;
 
         dotRect.x = ((int)(rooms[currRoomNumber].center.x) * PIX_PER_UNIT) + (SCREEN_WIDTH / 2) - dotRect.w/2;
         dotRect.y = ((int)(rooms[currRoomNumber].center.y) * PIX_PER_UNIT) + (SCREEN_HEIGHT / 2) - dotRect.h/2;
@@ -226,6 +272,10 @@ void display::OnCleanup() {
     SDL_FreeSurface(gRoom);
 
     SDL_FreeSurface(gGrey);
+
+    SDL_FreeSurface(gRed);
+
+    SDL_FreeSurface(gSides);
 
     SDL_DestroyWindow(sdlwindow);
 
