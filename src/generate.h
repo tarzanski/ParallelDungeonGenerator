@@ -10,4 +10,7 @@ typedef struct {
     float width;
 } rectangle_t;
 
+point_t getRandomPointInCircle(float radius);
+void separateRooms(rectangle_t *rooms, int numRooms);
+int isOverlapping(rectangle_t *rooms, int numRooms, int room_index);
 rectangle_t *generate(int numMainRooms, int radius);
