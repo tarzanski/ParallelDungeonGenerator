@@ -1,11 +1,9 @@
-#include "DXUT.h"      // This is all you need if you use Visual Studio and the DirectX SDK
-/*
+
 #include <float.h>     // Otherwise you may need these header files
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #define WORD  unsigned int
-*/
 
 #include "Clarkson-Delaunay.h"
 
