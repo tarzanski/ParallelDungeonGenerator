@@ -80,11 +80,11 @@ int isOverlapping(rectangle_t *rooms, int numRooms, int room_index) {
 rectangle_t *generate(int numMainRooms, int radius) {
     int totalRooms = numMainRooms * 10;
     int mean_width = 10;
-    float min_width = 2;
+    float min_width = 3;
     int stddev_width = 10;
 
     int mean_height = 10;
-    float min_height = 2;
+    float min_height = 3;
     int stddev_height = 10;
 
     std::default_random_engine generator;
@@ -93,8 +93,10 @@ rectangle_t *generate(int numMainRooms, int radius) {
 
     // create data structures
     rectangle_t *rooms = (rectangle_t *)malloc(sizeof(rectangle_t) * totalRooms);
+    rectangle_t *main_rooms = (rectangle_t *)malloc(sizeof(rectangle_t) * totalRooms);
 
     // generate list of rooms, add each to 1-d list
+    int main_index = 0;
     for (int i = 0; i < totalRooms; i++) {
         point_t center = getRandomPointInCircle(radius);
         rooms[i].center = center;
@@ -103,6 +105,10 @@ rectangle_t *generate(int numMainRooms, int radius) {
         }
         while (rooms[i].height < min_height) {
             rooms[i].height = std::max(min_height, height_distribution(generator));
+        }
+        if (rooms[i].width > 1.25 * mean_width && rooms[i].height > 1.25) {
+            main_rooms[main_index] = rooms[i];
+            main_index += 1;
         }
         /*
         printf("center: %f, %f\n", center.x, center.y);
