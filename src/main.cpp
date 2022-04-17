@@ -206,13 +206,13 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
 
     SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
 
-    printf("****** Room # %d\n", currRoomNumber);
-    printf("top corner x: %d\n", roomRect.x);
-    printf("top corner y: %d\n", roomRect.y);
-    printf("width       : %d\n", roomRect.w);
-    printf("height      : %d\n", roomRect.h);
-    printf("real x (int): %d\n", (int)units_x);
-    printf("real y (int): %d\n", (int)units_y);
+    // printf("****** Room # %d\n", currRoomNumber);
+    // printf("top corner x: %d\n", roomRect.x);
+    // printf("top corner y: %d\n", roomRect.y);
+    // printf("width       : %d\n", roomRect.w);
+    // printf("height      : %d\n", roomRect.h);
+    // printf("real x (int): %d\n", (int)units_x);
+    // printf("real y (int): %d\n", (int)units_y);
 
 
     /********* add sides to room *********/
