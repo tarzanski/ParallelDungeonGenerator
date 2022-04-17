@@ -36,20 +36,13 @@ void separateRooms(rectangle_t *rooms, int numRooms) {
         float x = room_p->center.x;
         float y = room_p->center.y;
         float dist = sqrt(pow(x, 2) + pow(y, 2));
-        float step_x = 5.0 * x / dist;
-        float step_y = 5.0 * y / dist;
-        /*
-        if (x < 0)
-            step_x *= -1;
-        if (y < 0)
-            step_y *= -1;
-        */
+        float step_x = x / dist;
+        float step_y = y / dist;
         while (isOverlapping(rooms, numRooms, i)) {
             point_t new_center;
             new_center.x = room_p->center.x + step_x;
             new_center.y = room_p->center.y + step_y;
             room_p->center = new_center;
-            // printf("pushing\n");
         }
     }
 }
@@ -57,11 +50,11 @@ void separateRooms(rectangle_t *rooms, int numRooms) {
 // Check if a rectangle is overlapping any others
 int isOverlapping(rectangle_t *rooms, int numRooms, int room_index) {
     float r_x = rooms[room_index].center.x;
-    float r_y = rooms[room_index].center.x;
+    float r_y = rooms[room_index].center.y;
     float r_width = rooms[room_index].width;
     float r_height = rooms[room_index].height;
-    float r_left = r_x + (r_width / 2);
-    float r_right = r_x - (r_width / 2);
+    float r_left = r_x - (r_width / 2);
+    float r_right = r_x + (r_width / 2);
     float r_bottom = r_y + (r_height / 2);
     float r_top = r_y - (r_height / 2);
     for (int i = 0; i < numRooms; i++) {
@@ -71,9 +64,12 @@ int isOverlapping(rectangle_t *rooms, int numRooms, int room_index) {
         float right = rooms[i].center.x + (rooms[i].width / 2);
         float bottom = rooms[i].center.y + (rooms[i].height / 2);
         float top = rooms[i].center.y - (rooms[i].height / 2);
-        if (((left < r_left && r_left < right) || (left < r_right && r_right < right))
-                && ((top < r_top && r_top < bottom) || (top < r_bottom && r_bottom < bottom)))
-            return 1;
+        if (right < r_left || r_right < left)
+            continue;
+        if (bottom < r_top || r_bottom < top)
+            continue;
+
+        return 1;
     }
     return 0;
 }
@@ -121,6 +117,7 @@ rectangle_t *generate(int numMainRooms, int radius) {
         point_t center = rooms[i].center;
         printf("center: %f, %f\n", center.x, center.y);
         printf("width: %f, height: %f\n", rooms[i].width, rooms[i].height);
+        printf("is overlapping: %d\n", isOverlapping(rooms, totalRooms, i));
     }
 
     return rooms;
