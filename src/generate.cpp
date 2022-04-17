@@ -11,6 +11,7 @@
 #include <random>
 
 #include "generate.h"
+#include "Clarkson-Delaunay.h"
 
 // Get random point in a circle of a certain radius
 point_t getRandomPointInCircle(float radius) {
@@ -110,21 +111,43 @@ rectangle_t *generate(int numMainRooms, int radius) {
             main_rooms[main_index] = rooms[i];
             main_index += 1;
         }
-        /*
-        printf("center: %f, %f\n", center.x, center.y);
-        printf("width: %f, height: %f\n", rooms[i].width, rooms[i].height);
-        */
     }
+
+    printf("There are %d main rooms\n", main_index);
 
     // separation steering
     separateRooms(rooms, totalRooms);
 
+    // Get center points of main rooms
+    float *pointList = (float *)malloc(sizeof(float) * main_index * 2);
+    for (int i = 0; i < main_index; i++) {
+        pointList[i * 2] = main_rooms[i].center.x;
+        pointList[i * 2 + 1] = main_rooms[i].center.y;
+    }
+
+    int numTriangleVertices;
+    int *triangleIndexList = BuildTriangleIndexList(
+            (void *)pointList,
+            (float)RAND_MAX,
+            main_index,
+            2,
+            0,
+            &numTriangleVertices);
+
+    /*
     for (int i = 0; i < totalRooms; i++) {
         point_t center = rooms[i].center;
         printf("center: %f, %f\n", center.x, center.y);
         printf("width: %f, height: %f\n", rooms[i].width, rooms[i].height);
         printf("is overlapping: %d\n", isOverlapping(rooms, totalRooms, i));
     }
+    */
+
+    for (int i = 0; i < numTriangleVertices; i++) {
+        printf("%d\n", triangleIndexList[i]);
+    }
+    free(pointList);
+    free(triangleIndexList);
 
     return rooms;
 }

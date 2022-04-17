@@ -22,7 +22,11 @@ typedef Coord* point;
 #define VA(x) ((x)->vecs+rdim)
 #define VB(x) ((x)->vecs)
 
+#define WORD int
+
 typedef point site;
+
+WORD *BuildTriangleIndexList (void *pointList, float factor, int numberOfInputPoints, int numDimensions, int clockwise, int *numTriangleVertices);
 
 typedef struct basis_s {
    struct basis_s *next; /* free list */
