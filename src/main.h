@@ -20,6 +20,8 @@ class display {
 
         SDL_Surface* gRoom;
 
+        SDL_Surface* gSides;
+
         SDL_Surface* gGrey;
 
         SDL_Surface* gRed;
