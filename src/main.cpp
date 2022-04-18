@@ -150,7 +150,7 @@ void display::OnEvent(SDL_Event* event) {
             pixPerUnit += 1;
             printf("Scrolling up by: %d ppu: %d\n", event->wheel.y, pixPerUnit);
         }
-        if (event->wheel.y < 0) { // scroll down
+        if (event->wheel.y < 0 && pixPerUnit != 1) { // scroll down
             pixPerUnit -= 1;
             printf("Scrolling down by: %d ppu: %d\n", event->wheel.y, pixPerUnit);
         }
@@ -173,11 +173,21 @@ void display::OnLoop() {
  */
 void display::genBackround() {
     // going right from origin inclusive
-    int originx = (((SCREEN_WIDTH/2) / pixPerUnit) * pixPerUnit);
-    int originy = (((SCREEN_HEIGHT/2) / pixPerUnit) * pixPerUnit);
+    int originx = SCREEN_WIDTH / 2;
+    int originy = SCREEN_HEIGHT / 2;
 
     SDL_Rect moverect;
-    for (int x = 0; x < SCREEN_WIDTH; x += pixPerUnit) {
+    // right from origin inclusive
+    for (int x = originx; x < SCREEN_WIDTH; x += pixPerUnit) {
+        moverect.x = x;
+        moverect.y = 0;
+        moverect.w = 1;
+        moverect.h = SCREEN_HEIGHT;
+
+        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+    }
+    // left from origin
+    for (int x = originx - pixPerUnit; x > 0; x -= pixPerUnit) {
         moverect.x = x;
         moverect.y = 0;
         moverect.w = 1;
@@ -188,7 +198,17 @@ void display::genBackround() {
 
 
     // going down from origin inclusive
-    for (int y = 0; y < SCREEN_HEIGHT; y += pixPerUnit) {
+    for (int y = originy; y < SCREEN_HEIGHT; y += pixPerUnit) {
+        moverect.x = 0;
+        moverect.y = y;
+        moverect.w = SCREEN_WIDTH;
+        moverect.h = 1;
+
+        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+    }
+
+    // going down from origin inclusive
+    for (int y = originy - pixPerUnit; y > 0; y -= pixPerUnit) {
         moverect.x = 0;
         moverect.y = y;
         moverect.w = SCREEN_WIDTH;
@@ -254,7 +274,7 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
         SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
 
         // bottom side
-        sideRect.y = roomRect.y + roomRect.h - 1; // not sure about -1????
+        sideRect.y = roomRect.y + roomRect.h - 1;
 
         SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
 
