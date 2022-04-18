@@ -2,6 +2,7 @@ APP_NAME=generate
 
 OBJS=generate.o
 OBJS+=main.o
+OBJS+=Clarkson-Delaunay.o
 
 CXX = g++ -m64 -std=c++11
 CXXFLAGS = -I. -Wall #-O3
