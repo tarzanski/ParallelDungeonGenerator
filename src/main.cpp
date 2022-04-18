@@ -32,9 +32,6 @@ int main(int argc, char** argv) {
 
     printf("***** CLOSING GUI*****\n");
 
-    for (int i = 0; i < roomNum; i++) {
-        free(rooms[i].neighbors);
-    }
     free(rooms);
 
     return ecode;

@@ -33,56 +33,61 @@ point_t getRandomPointInCircle(float radius) {
 }
 
 // Move the centers of the rooms away from each other
+// stackoverflow.com/questions/70806500/separation-steering-algorithm-for-separationg-set-of-rectangles/
 void separateRooms(rectangle_t *rooms, int numRooms) {
-    for (int i = 0; i < numRooms; i++) {
-        rectangle_t *room_p = &rooms[i];
-        float x = room_p->center.x;
-        float y = room_p->center.y;
-        float dist = sqrt(pow(x, 2) + pow(y, 2));
-        float step_x = x / dist;
-        float step_y = y / dist;
-        while (isOverlapping(rooms, numRooms, i)) {
-            point_t new_center;
-            new_center.x = room_p->center.x + step_x;
-            new_center.y = room_p->center.y + step_y;
-            room_p->center = new_center;
-            /*
+    while (anyOverlapping(rooms, numRooms)) {
+        for (int i = 0; i < numRooms; i++) {
             for (int j = 0; j < numRooms; j++) {
-                float step_x = rooms[i].center.x / 10;
-                float step_y = rooms[i].center.y / 10;
-                point_t new_center;
-                new_center.x = rooms[i].center.x + step_x;
-                new_center.y = rooms[i].center.y + step_y;
-                rooms[i].center = new_center;
+                if (i == j)
+                    continue;
+                if (isOverlapping(rooms, i, j)) {
+                    float step_x = rooms[j].center.x - rooms[i].center.x;
+                    float step_y = rooms[j].center.y - rooms[i].center.y;
+                    float dist = sqrt(pow(step_x, 2) + pow(step_y, 2));
+                    step_x /= dist;
+                    step_y /= dist;
+                    rooms[i].center.x -= step_x;
+                    rooms[i].center.y -= step_y;
+                    rooms[j].center.x += step_x;
+                    rooms[j].center.y += step_y;
+                    /*
+                    rooms[i].center.x = round(rooms[i].center.x);
+                    rooms[i].center.y = round(rooms[i].center.y);
+                    rooms[j].center.x = round(rooms[j].center.x);
+                    rooms[j].center.y = round(rooms[j].center.y);
+                    */
+                }
             }
-            */
         }
     }
 }
 
-// Check if a rectangle is overlapping any others
-int isOverlapping(rectangle_t *rooms, int numRooms, int room_index) {
-    float r_x = rooms[room_index].center.x;
-    float r_y = rooms[room_index].center.y;
-    float r_width = rooms[room_index].width;
-    float r_height = rooms[room_index].height;
-    float r_left = r_x - (r_width / 2);
-    float r_right = r_x + (r_width / 2);
-    float r_bottom = r_y + (r_height / 2);
-    float r_top = r_y - (r_height / 2);
-    for (int i = 0; i < numRooms; i++) {
-        if (i == room_index)
-            continue;
-        float left = rooms[i].center.x - (rooms[i].width / 2);
-        float right = rooms[i].center.x + (rooms[i].width / 2);
-        float bottom = rooms[i].center.y + (rooms[i].height / 2);
-        float top = rooms[i].center.y - (rooms[i].height / 2);
-        if (right < r_left || r_right < left)
-            continue;
-        if (bottom < r_top || r_bottom < top)
-            continue;
+int isOverlapping(rectangle_t *rooms, int i1, int i2) {
+    if (i1 == i2)
+        return 0;
+    float left1 = rooms[i1].center.x - (rooms[i1].width / 2);
+    float right1 = rooms[i1].center.x + (rooms[i1].width / 2);
+    float bottom1 = rooms[i1].center.y + (rooms[i1].height / 2);
+    float top1 = rooms[i1].center.y - (rooms[i1].height / 2);
 
-        return 1;
+    float left2 = rooms[i2].center.x - (rooms[i2].width / 2);
+    float right2 = rooms[i2].center.x + (rooms[i2].width / 2);
+    float bottom2 = rooms[i2].center.y + (rooms[i2].height / 2);
+    float top2 = rooms[i2].center.y - (rooms[i2].height / 2);
+    if (right1 < left2 || right2 < left1)
+        return 0;
+    if (bottom1 < top2 || bottom2 < top1)
+        return 0;
+    return 1;
+}
+
+// Check if a rectangle is overlapping any others
+int anyOverlapping(rectangle_t *rooms, int numRooms) {
+    for (int i = 0; i < numRooms; i++) {
+        for (int j = 0; j < numRooms; j++) {
+            if (isOverlapping(rooms, i, j))
+                return 1;
+        }
     }
     return 0;
 }
@@ -155,9 +160,6 @@ rectangle_t *generate(int numRooms, int radius) {
     for (int i = 0; i < numRooms; i++) {
         point_t center = getRandomPointInCircle(radius);
         rooms[i].center = center;
-        rooms[i].neighbors = (float *)calloc(numRooms, sizeof(float));
-        for (int j = 0; j < numRooms; j++)
-            rooms[i].neighbors[j] = std::numeric_limits<float>::infinity();
         while (rooms[i].width < min_width) {
             rooms[i].width = width_distribution(generator);
         }
@@ -192,15 +194,6 @@ rectangle_t *generate(int numRooms, int radius) {
             0,
             &numTriangleVertices);
 
-    /*
-    for (int i = 0; i < numRooms; i++) {
-        point_t center = rooms[i].center;
-        printf("center: %f, %f\n", center.x, center.y);
-        printf("width: %f, height: %f\n", rooms[i].width, rooms[i].height);
-        printf("is overlapping: %d\n", isOverlapping(rooms, numRooms, i));
-    }
-    */
-
     // Directed edges
     edge_t *allEdges = (edge_t *)calloc(numTriangleVertices * 2, sizeof(edge_t));
     for (int i = 0; i < (numTriangleVertices * 2); i++)
@@ -210,7 +203,7 @@ rectangle_t *generate(int numRooms, int radius) {
     int vertices[3];
     printf("numTriangleVertices mod 3: %d\n", (numTriangleVertices % 3));
 
-    // Set up the neighbors I guess?
+    // Set up the edges I guess?
     int edge_index = 0;
     for (int i = 0; i < numTriangleVertices; i++) {
         int vertex = triangleIndexList[i];
@@ -223,12 +216,6 @@ rectangle_t *generate(int numRooms, int radius) {
                     + pow(rooms[vertices[0]].center.y - rooms[vertices[2]].center.y, 2));
             float dist_1_2 = sqrt(pow(rooms[vertices[1]].center.x - rooms[vertices[2]].center.x, 2)
                     + pow(rooms[vertices[1]].center.y - rooms[vertices[2]].center.y, 2));
-            rooms[vertices[0]].neighbors[vertices[1]] = dist_0_1;
-            rooms[vertices[1]].neighbors[vertices[0]] = dist_0_1;
-            rooms[vertices[0]].neighbors[vertices[2]] = dist_0_2;
-            rooms[vertices[2]].neighbors[vertices[0]] = dist_0_2;
-            rooms[vertices[1]].neighbors[vertices[2]] = dist_1_2;
-            rooms[vertices[2]].neighbors[vertices[1]] = dist_1_2;
             allEdges[edge_index++] = {vertices[0], vertices[1], dist_0_1};
             allEdges[edge_index++] = {vertices[1], vertices[0], dist_0_1};
             allEdges[edge_index++] = {vertices[0], vertices[2], dist_0_2};
