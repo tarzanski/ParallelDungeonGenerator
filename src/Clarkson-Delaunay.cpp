@@ -520,7 +520,7 @@ static void get_normal_sede(simplex *s) {
 }
 
 // ----------------------------------------------------------------
-static int sees(site p, simplex *s) {
+int sees(site p, simplex *s) {
    point   tt,zz;
    double   dd,dds;
    int i;
@@ -702,7 +702,7 @@ static void build_convex_hull(void) {
 
 
 // -------------------------------------------
-static simplex *visit_triang_gen(simplex *s, visit_func *visit, test_func *test) {
+simplex *visit_triang_gen(simplex *s, visit_func *visit, test_func *test) {
    /*
     * starting at s, visit simplices t such that test(s,i,0) is true,
     * and t is the i'th neighbor of s;
@@ -1018,7 +1018,7 @@ static point get_another_site(void) {
 
 
 // ----------------------------------------------------------------
-static void buildhull (simplex *root) {
+void buildhull (simplex *root) {
 
    while (cdim < rdim) {
       p = get_another_site();
@@ -1034,7 +1034,7 @@ static void buildhull (simplex *root) {
 
 
 // ------------------------------------------------------
-static simplex *facets_print(simplex *s, void *p) {
+simplex *facets_print(simplex *s, void *p) {
    point v[MAXDIM];
    int j;
 

@@ -13,7 +13,7 @@
 int main(int argc, char** argv) {
 
     // implement argument parsing
-    
+
     // initialize SDL interface if using a GUI
 
     // set up any timing before calling algorithm functions
@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
 
     int roomNum = 50;
 
-    rectangle_t *rooms = generate(roomNum/10, 25);
+    rectangle_t *rooms = generate(roomNum, 25);
 
     display disp;
 
@@ -32,6 +32,9 @@ int main(int argc, char** argv) {
 
     printf("***** CLOSING GUI*****\n");
 
+    for (int i = 0; i < roomNum; i++) {
+        free(rooms[i].neighbors);
+    }
     free(rooms);
 
     return ecode;
@@ -73,7 +76,7 @@ bool display::OnInit() {
 
     SDL_SetRenderDrawColor(renderer,0x00,0x00,0x00,0xFF);
     SDL_RenderClear(renderer);
-    
+
     return true;
 }
 
@@ -136,7 +139,7 @@ int display::OnExecute(rectangle_t *rooms, int roomNum) {
         return -1;
 
     genBackround();
-    
+
     SDL_Event Event;
 
     while (running) {
@@ -146,10 +149,10 @@ int display::OnExecute(rectangle_t *rooms, int roomNum) {
         if (currRoomNumber < roomNum) {
 
             OnRender(rooms, roomNum);
-            
+
             OnLoop();
         }
-    } 
+    }
 
     OnCleanup();
 
@@ -235,7 +238,7 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
 
     // bottom side
     sideRect.y = roomRect.y + roomRect.h - 1; // not sure about -1????
-    
+
     SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
 
     // right side

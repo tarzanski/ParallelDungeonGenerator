@@ -104,7 +104,13 @@ typedef struct fg_node {
 typedef simplex * visit_func(simplex *, void *);
 typedef int test_func(simplex *, int, void *);
 
+/*
 static int sees(site, simplex *);
 static void buildhull(simplex *);
 static simplex *facets_print(simplex *s, void *p);
 static simplex *visit_triang_gen(simplex *s, visit_func *visit, test_func *test);
+*/
+int sees(site, simplex *);
+void buildhull(simplex *);
+simplex *facets_print(simplex *s, void *p);
+simplex *visit_triang_gen(simplex *s, visit_func *visit, test_func *test);

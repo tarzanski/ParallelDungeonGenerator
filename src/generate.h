@@ -5,9 +5,16 @@ typedef struct {
 } point_t;
 
 typedef struct {
+    int src;
+    int dest;
+    float dist;
+} edge_t;
+
+typedef struct {
     point_t center;
     float height;
     float width;
+    float *neighbors;  // -1 for unconnected, otherwise weight
 } rectangle_t;
 
 point_t getRandomPointInCircle(float radius);
