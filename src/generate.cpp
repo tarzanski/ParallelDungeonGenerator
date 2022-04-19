@@ -15,6 +15,9 @@
 #include "generate.h"
 #include "Clarkson-Delaunay.h"
 
+#define MAX_ITERS 1000
+#define P_EXTRA 0.10
+
 // Get random point in a circle of a certain radius
 point_t getRandomPointInCircle(float radius) {
     float t = 2 * M_PI * ((double)rand() / (double)RAND_MAX);
@@ -27,15 +30,18 @@ point_t getRandomPointInCircle(float radius) {
         r = u;
     }
     point_t p;
-    p.x = radius * r * cos(t);
-    p.y = radius * r * sin(t);
+    p.x = round(radius * r * cos(t));
+    p.y = round(radius * r * sin(t));
     return p;
 }
 
 // Move the centers of the rooms away from each other
 // stackoverflow.com/questions/70806500/separation-steering-algorithm-for-separationg-set-of-rectangles/
-void separateRooms(rectangle_t *rooms, int numRooms) {
+int separateRooms(rectangle_t *rooms, int numRooms) {
+    int num_iters = 0;
     while (anyOverlapping(rooms, numRooms)) {
+        if (num_iters >= MAX_ITERS)
+            return 1;
         for (int i = 0; i < numRooms; i++) {
             for (int j = 0; j < numRooms; j++) {
                 if (i == j)
@@ -44,22 +50,25 @@ void separateRooms(rectangle_t *rooms, int numRooms) {
                     float step_x = rooms[j].center.x - rooms[i].center.x;
                     float step_y = rooms[j].center.y - rooms[i].center.y;
                     float dist = sqrt(pow(step_x, 2) + pow(step_y, 2));
+                    if (round(dist) == 0)
+                        dist = 0.001f;
                     step_x /= dist;
                     step_y /= dist;
+                    step_x = round(step_x);
+                    step_y = round(step_y);
                     rooms[i].center.x -= step_x;
                     rooms[i].center.y -= step_y;
                     rooms[j].center.x += step_x;
                     rooms[j].center.y += step_y;
-                    /*
-                    rooms[i].center.x = round(rooms[i].center.x);
-                    rooms[i].center.y = round(rooms[i].center.y);
-                    rooms[j].center.x = round(rooms[j].center.x);
-                    rooms[j].center.y = round(rooms[j].center.y);
-                    */
+                    // I suppose its possible for the centers to be exactly equal.
+                    // Not handled here.
                 }
             }
         }
+        num_iters += 1;
     }
+    printf("Converged: num iters for convergence: %d\n", num_iters);
+    return 0;
 }
 
 int isOverlapping(rectangle_t *rooms, int i1, int i2) {
@@ -103,12 +112,16 @@ int findSubset(int a, int *parentMap) {
 }
 
 // Return list of (unnecessarily directed) edges that form minimum spanning tree
-edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVertices, int numEdges) {
+edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVertices, int numEdges, float pExtras, int *numAddedEdges_p) {
+    if (pExtras < 0.0f || pExtras > 1.0f)
+        return NULL;
+
     // Note: size of allEdges is numEdges * 2
     std::sort(allEdges, allEdges + numEdges, edgeLT);
 
-    int numSpanningEdges = 0;
-    edge_t *mst = (edge_t *)calloc(numVertices - 1, sizeof(edge_t));
+    int numAddedEdges = 0;  // Total number of edges to use in the dungeon
+    int numSpanningEdges = 0;  // Number of edges that form the MST
+    edge_t *mst = (edge_t *)calloc(numEdges, sizeof(edge_t));
     int *parentMap = (int *)malloc(sizeof(int) * numVertices);
     // Initialize the union find thing
     for (int i = 0; i < numVertices; i++) {
@@ -124,12 +137,20 @@ edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVerti
         int parentSrc = findSubset(src, parentMap);
         int parentDest = findSubset(dest, parentMap);
         if (parentSrc == parentDest) {
+            // Chance of adding an extra edge
+            float roll = (double)rand() / (double)RAND_MAX;
+            if (roll < pExtras) {
+                mst[numAddedEdges] = {src, dest, allEdges[i].dist};
+                numAddedEdges += 1;
+            }
             continue;
         }
-        mst[numSpanningEdges] = {src, dest, allEdges[i].dist};
+        mst[numAddedEdges] = {src, dest, allEdges[i].dist};
+        numAddedEdges += 1;
         numSpanningEdges += 1;
         parentMap[parentDest] = parentSrc;
     }
+    *numAddedEdges_p = numAddedEdges;
     free(parentMap);
     return mst;
 }
@@ -146,6 +167,7 @@ rectangle_t *generate(int numRooms, int radius) {
     float min_height = 3;
     int stddev_height = 10;
 
+    srand(100);
     std::default_random_engine generator;
     std::normal_distribution<float> width_distribution(mean_width, stddev_width);
     std::normal_distribution<float> height_distribution(mean_height, stddev_height);
@@ -161,10 +183,10 @@ rectangle_t *generate(int numRooms, int radius) {
         point_t center = getRandomPointInCircle(radius);
         rooms[i].center = center;
         while (rooms[i].width < min_width) {
-            rooms[i].width = width_distribution(generator);
+            rooms[i].width = round(width_distribution(generator));
         }
         while (rooms[i].height < min_height) {
-            rooms[i].height = height_distribution(generator);
+            rooms[i].height = round(height_distribution(generator));
         }
         if (rooms[i].width > 1.25 * mean_width && rooms[i].height > 1.25 * mean_height) {
             main_rooms[main_index] = rooms[i];
@@ -173,10 +195,12 @@ rectangle_t *generate(int numRooms, int radius) {
         }
     }
 
-    printf("There are %d main rooms\n", main_index);
 
     // separation steering
-    separateRooms(rooms, numRooms);
+    if (separateRooms(rooms, numRooms))
+        printf("Separation reached max iters");
+
+    printf("There are %d main rooms\n", main_index);
 
     // Get center points of main rooms
     float *pointList = (float *)calloc(main_index * 2, sizeof(float));
@@ -225,8 +249,11 @@ rectangle_t *generate(int numRooms, int radius) {
             triangleCounter = 0;
         }
     }
-    edge_t *mst = findMinimumSpanningTree(allEdges, main_index, numRooms, edge_index);
-    for (int i = 0; i < main_index - 1; i++) {
+
+    // Find MST + a few extra edges
+    int numAddedEdges = 0;
+    edge_t *mst = findMinimumSpanningTree(allEdges, main_index, numRooms, edge_index, P_EXTRA, &numAddedEdges);
+    for (int i = 0; i < numAddedEdges; i++) {
         printf("src: %d, dest: %d\n", mst[i].src, mst[i].dest);
     }
 
