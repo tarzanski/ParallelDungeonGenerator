@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
 
     // parse arguments if using a gui
 
-    int roomNum = 50;
+    int roomNum = 500;
 
     rectangle_t *rooms = generate(roomNum, 25);
 
@@ -45,6 +45,8 @@ display::display() {
     running = true;
     currRoomNumber = 0;
     pixPerUnit = 5;
+    x_offset = 0;
+    y_offset = 0;
 }
 
 /*
@@ -65,48 +67,44 @@ bool display::OnInit() {
         return false;
     }
 
-    gScreenSurface = SDL_GetWindowSurface(sdlwindow);
+    if ((renderer = SDL_CreateRenderer(sdlwindow, -1, 0)) == NULL) {
+        printf("Error with creating software renderer: %s\n", SDL_GetError());
+        return false;
+    }
 
-    // apparently we don't need a renderer at all??? sure
-
-    // SDL_Renderer* renderer;
-    // if ((renderer = SDL_CreateRenderer(sdlwindow, -1, 0)) == NULL) {
-    //     printf("Error with creating software renderer: %s\n", SDL_GetError());
-    //     return false;
-    // }
-
-    // SDL_SetRenderDrawColor(renderer,0x00,0x00,0x00,0xFF);
-    // SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(renderer,0x00,0x00,0x00,0xFF);
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer); // <-- render update function 
 
     return true;
 }
 
-SDL_Surface* loadSurface(std::string path, SDL_Surface* gScreenSurface) {
-    SDL_Surface* optimizedSurface = NULL;
+SDL_Texture* loadTexture(std::string path, SDL_Renderer* renderer) {
+    SDL_Texture* tex = NULL;
 
     SDL_Surface* loadedSurface = SDL_LoadBMP(path.c_str());
     if (loadedSurface == NULL) {
         printf("Unable to load image %s :: Error %s\n",path.c_str(), SDL_GetError());
     }
 
-    // converting surface to screen format
-    optimizedSurface = SDL_ConvertSurface(loadedSurface, gScreenSurface->format, 0);
-    if (optimizedSurface == NULL) {
-        printf("Unable to optimize image %s\n", path.c_str());
+    // converting surface to texture for rendering
+    tex = SDL_CreateTextureFromSurface(renderer, loadedSurface);
+    if (tex == NULL) {
+        printf("Unable to create texture for image %s\n", path.c_str());
     }
 
     SDL_FreeSurface(loadedSurface);
-    return optimizedSurface;
+    return tex;
 }
 
 void display::loadAssets() {
-    gRoom = loadSurface("assets/room_proto_2.bmp", gScreenSurface);
+    gRoom = loadTexture("assets/room_proto_2.bmp", renderer);
 
-    gSides = loadSurface("assets/turq_square.bmp", gScreenSurface);
+    gSides = loadTexture("assets/turq_square.bmp", renderer);
 
-    gGrey = loadSurface("assets/grey_square.bmp", gScreenSurface);
+    gGrey = loadTexture("assets/grey_square.bmp", renderer);
 
-    gRed = loadSurface("assets/red_square.bmp", gScreenSurface);
+    gRed = loadTexture("assets/red_square.bmp", renderer);
 }
 
 /*
@@ -118,8 +116,6 @@ int display::OnExecute(rectangle_t *rooms, int roomNum) {
 
     loadAssets();
 
-    genBackround();
-
     SDL_Event Event;
 
     while (running) {
@@ -129,7 +125,7 @@ int display::OnExecute(rectangle_t *rooms, int roomNum) {
 
         OnRender(rooms, roomNum);
 
-        OnLoop();
+    //     OnLoop();
     }
 
     OnCleanup();
@@ -148,11 +144,11 @@ void display::OnEvent(SDL_Event* event) {
     if (event->type == SDL_MOUSEWHEEL) {
         if (event->wheel.y > 0) { // scroll up
             pixPerUnit += 1;
-            printf("Scrolling up by: %d ppu: %d\n", event->wheel.y, pixPerUnit);
+            //printf("Scrolling up by: %d ppu: %d\n", event->wheel.y, pixPerUnit);
         }
         if (event->wheel.y < 0 && pixPerUnit != 1) { // scroll down
             pixPerUnit -= 1;
-            printf("Scrolling down by: %d ppu: %d\n", event->wheel.y, pixPerUnit);
+            //printf("Scrolling down by: %d ppu: %d\n", event->wheel.y, pixPerUnit);
         }
     }
 
@@ -184,7 +180,7 @@ void display::genBackround() {
         moverect.w = 1;
         moverect.h = SCREEN_HEIGHT;
 
-        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
     // left from origin
     for (int x = originx - pixPerUnit; x > 0; x -= pixPerUnit) {
@@ -193,7 +189,7 @@ void display::genBackround() {
         moverect.w = 1;
         moverect.h = SCREEN_HEIGHT;
 
-        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
 
 
@@ -204,7 +200,7 @@ void display::genBackround() {
         moverect.w = SCREEN_WIDTH;
         moverect.h = 1;
 
-        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
 
     // going down from origin inclusive
@@ -214,7 +210,7 @@ void display::genBackround() {
         moverect.w = SCREEN_WIDTH;
         moverect.h = 1;
 
-        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
 }
 
@@ -223,7 +219,7 @@ void display::genBackround() {
  */
 void display::OnRender(rectangle_t *rooms, int roomNum) {
     // clearing old frame
-    SDL_FillRect(gScreenSurface, NULL, 0x000000);
+    SDL_RenderClear(renderer);
 
     // first generate background grid
     genBackround();
@@ -243,8 +239,8 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
         roomRect.w = (int)roomW * pixPerUnit;
 
         // calculating the room centers based on the number of pixels per unit
-        float units_x = rooms[room_inc].center.x;
-        float units_y = rooms[room_inc].center.y;
+        int units_x = (int)rooms[room_inc].center.x + x_offset;
+        int units_y = (int)rooms[room_inc].center.y + y_offset;
 
         roomRect.x = ((int)(units_x) * pixPerUnit) - (((roomRect.w/2) / pixPerUnit) * pixPerUnit);
         roomRect.y = ((int)( units_y) * pixPerUnit) - (((roomRect.h/2) / pixPerUnit) * pixPerUnit);
@@ -253,7 +249,7 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
         roomRect.x += SCREEN_WIDTH / 2;
         roomRect.y += SCREEN_HEIGHT / 2;
 
-        SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
+        SDL_RenderCopy(renderer, gRoom, NULL, &roomRect);
 
         /********* add sides to room *********/
 
@@ -265,18 +261,18 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
         sideRect.h = roomRect.h;
         sideRect.w = 1;
 
-        SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+        SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
 
         // top side
         sideRect.h = 1;
         sideRect.w = roomRect.w;
 
-        SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+        SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
 
         // bottom side
         sideRect.y = roomRect.y + roomRect.h - 1;
 
-        SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+        SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
 
         // right side
         sideRect.x = roomRect.x + roomRect.w - 1;
@@ -284,7 +280,7 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
         sideRect.h = roomRect.h;
         sideRect.w = 1;
 
-        SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+        SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
 
         SDL_Rect dotRect;
 
@@ -295,10 +291,10 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
         dotRect.x = ((int)(rooms[room_inc].center.x) * pixPerUnit) + (SCREEN_WIDTH / 2) - dotRect.w/2;
         dotRect.y = ((int)(rooms[room_inc].center.y) * pixPerUnit) + (SCREEN_HEIGHT / 2) - dotRect.h/2;
 
-        SDL_BlitScaled(gRed, NULL, gScreenSurface, &dotRect);
+        SDL_RenderCopy(renderer, gRed, NULL, &dotRect);
         
     }
-    SDL_UpdateWindowSurface(sdlwindow);
+    SDL_RenderPresent(renderer);
 }
 
 
@@ -306,15 +302,21 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
  * Closing function called before exit
  */
 void display::OnCleanup() {
-    SDL_FreeSurface(gRoom);
+    // SDL_FreeSurface(gRoom);
+    SDL_DestroyTexture(gRoom);
 
-    SDL_FreeSurface(gGrey);
+    // SDL_FreeSurface(gGrey);
+    SDL_DestroyTexture(gGrey);
 
-    SDL_FreeSurface(gRed);
-
-    SDL_FreeSurface(gSides);
+    // SDL_FreeSurface(gRed);
+    SDL_DestroyTexture(gRed); 
+ 
+    // SDL_FreeSurface(gSides);
+    SDL_DestroyTexture(gSides);
 
     SDL_DestroyWindow(sdlwindow);
+
+    SDL_DestroyRenderer(renderer);
 
     SDL_Quit();
 }
