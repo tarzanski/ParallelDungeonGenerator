@@ -37,13 +37,16 @@ point_t getRandomPointInCircle(float radius) {
 
 // Move the centers of the rooms away from each other
 // stackoverflow.com/questions/70806500/separation-steering-algorithm-for-separationg-set-of-rectangles/
-int separateRooms(rectangle_t *rooms, int numRooms) {
+void separateRooms(dungeon_t *dungeon) {
+    rectangle_t *rooms = dungeon->rooms;
     int num_iters = 0;
-    while (anyOverlapping(rooms, numRooms)) {
-        if (num_iters >= MAX_ITERS)
-            return 1;
-        for (int i = 0; i < numRooms; i++) {
-            for (int j = 0; j < numRooms; j++) {
+    while (anyOverlapping(rooms, dungeon->numRooms)) {
+        if (num_iters >= MAX_ITERS) {
+            printf("Did not converge in %d iterations\n", num_iters);
+            return;
+        }
+        for (int i = 0; i < dungeon->numRooms; i++) {
+            for (int j = 0; j < dungeon->numRooms; j++) {
                 if (i == j)
                     continue;
                 if (isOverlapping(rooms, i, j)) {
@@ -67,8 +70,7 @@ int separateRooms(rectangle_t *rooms, int numRooms) {
         }
         num_iters += 1;
     }
-    printf("Converged: num iters for convergence: %d\n", num_iters);
-    return 0;
+    printf("Converged in %d iterations\n", num_iters);
 }
 
 int isOverlapping(rectangle_t *rooms, int i1, int i2) {
@@ -128,12 +130,6 @@ edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVerti
         parentMap[i] = -1;
     }
     for (int i = 0; i < numEdges; i++) {
-        // Check if done
-        /*
-        if (numSpanningEdges == numMainRooms - 1)
-            break;
-        */
-
         int src = allEdges[i].src;
         int dest = allEdges[i].dest;
         int parentSrc = findSubset(src, parentMap);
@@ -160,7 +156,7 @@ edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVerti
 /*
  * Top function of sequential algorithm, called by main in main.cpp
  */
-rectangle_t *generate(int numRooms, int radius) {
+void generate(dungeon_t *dungeon, int numRooms, int radius) {
     int mean_width = 10;
     float min_width = 3;
     int stddev_width = 10;
@@ -176,7 +172,9 @@ rectangle_t *generate(int numRooms, int radius) {
 
     // create data structures
     rectangle_t *rooms = (rectangle_t *)calloc(numRooms, sizeof(rectangle_t));
-    rectangle_t *main_rooms = (rectangle_t *)malloc(sizeof(rectangle_t) * numRooms);
+    rectangle_t *mainRooms = (rectangle_t *)malloc(sizeof(rectangle_t) * numRooms);
+    dungeon->rooms = rooms;
+    dungeon->numRooms = numRooms;
 
     // generate list of rooms, add each to 1-d list
     int main_index = 0;
@@ -191,24 +189,25 @@ rectangle_t *generate(int numRooms, int radius) {
             rooms[i].height = round(height_distribution(generator));
         }
         if (rooms[i].width > 1.25 * mean_width && rooms[i].height > 1.25 * mean_height) {
-            main_rooms[main_index] = rooms[i];
+            mainRooms[main_index] = rooms[i];
             mainIndexToIndex[main_index] = i;
             main_index += 1;
         }
     }
-
-
-    // Separation steering
-    if (separateRooms(rooms, numRooms))
-        printf("Separation reached max iters");
-
     printf("There are %d main rooms\n", main_index);
+    dungeon->mainRoomIndices = mainIndexToIndex;
+    dungeon->numMainRooms = main_index;
+    free(mainRooms);
+}
+
+void constructHallways(dungeon_t *dungeon) {
+    rectangle_t *rooms = dungeon->rooms;
 
     // Get center points of main rooms
-    float *pointList = (float *)calloc(main_index * 2, sizeof(float));
-    for (int i = 0; i < main_index; i++) {
-        pointList[i * 2] = main_rooms[i].center.x;
-        pointList[i * 2 + 1] = main_rooms[i].center.y;
+    float *pointList = (float *)calloc(dungeon->numMainRooms * 2, sizeof(float));
+    for (int i = 0; i < dungeon->numMainRooms; i++) {
+        pointList[i * 2] = dungeon->rooms[dungeon->mainRoomIndices[i]].center.x;
+        pointList[i * 2 + 1] = dungeon->rooms[dungeon->mainRoomIndices[i]].center.y;
     }
 
     int numTriangleVertices;
@@ -217,7 +216,7 @@ rectangle_t *generate(int numRooms, int radius) {
     int *triangleIndexList = BuildTriangleIndexList(
             (void *)pointList,
             (float)RAND_MAX,
-            main_index,
+            dungeon->numMainRooms,
             2,
             0,
             &numTriangleVertices);
@@ -234,7 +233,7 @@ rectangle_t *generate(int numRooms, int radius) {
     int edge_index = 0;
     for (int i = 0; i < numTriangleVertices; i++) {
         int vertex = triangleIndexList[i];
-        vertices[triangleCounter] = mainIndexToIndex[vertex];
+        vertices[triangleCounter] = dungeon->mainRoomIndices[vertex];
         triangleCounter += 1;
         if (triangleCounter == 3) {
             float dist_0_1 = sqrt(pow(rooms[vertices[0]].center.x - rooms[vertices[1]].center.x, 2)
@@ -255,7 +254,7 @@ rectangle_t *generate(int numRooms, int radius) {
 
     // Find MST + a few extra edges
     int numAddedEdges = 0;
-    edge_t *mst = findMinimumSpanningTree(allEdges, main_index, numRooms, edge_index, P_EXTRA, &numAddedEdges);
+    edge_t *mst = findMinimumSpanningTree(allEdges, dungeon->numMainRooms, dungeon->numRooms, edge_index, P_EXTRA, &numAddedEdges);
     for (int i = 0; i < numAddedEdges; i++) {
         printf("src: %d, dest: %d\n", mst[i].src, mst[i].dest);
     }
@@ -276,7 +275,7 @@ rectangle_t *generate(int numRooms, int radius) {
         float dest_top = round(dest_room.center.y - (dest_room.height / 2));
         float dest_bottom = round(dest_room.center.y + (dest_room.height / 2));
 
-        // Some are going to be duplicates due to directed graph, need t remove
+        // Some are going to be duplicates due to directed graph and due to triangle construction, need to remove
         float mid_x = ((src_room.center.x + dest_room.center.x) / 2);
         float mid_y = round((src_room.center.y + dest_room.center.y) / 2);
 
@@ -296,14 +295,12 @@ rectangle_t *generate(int numRooms, int radius) {
             hallways[i].end = {dest_room.center.x, dest_room.center.y};
         }
     }
-    free(hallways);  // TEMP
+
+    dungeon->hallways = hallways;
+    dungeon->numHallways = numAddedEdges;
 
     free(pointList);
-    free(main_rooms);
     free(triangleIndexList);
-    free(mainIndexToIndex);
     free(allEdges);
     free(mst);
-
-    return rooms;
 }

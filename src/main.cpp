@@ -22,17 +22,24 @@ int main(int argc, char** argv) {
 
     int roomNum = 50;
 
-    rectangle_t *rooms = generate(roomNum, 25);
+    dungeon_t d;
+    dungeon_t *dungeon = &d;
+
+    generate(dungeon, roomNum, 25);
+    separateRooms(dungeon);
+    constructHallways(dungeon);
 
     display disp;
 
     printf("*****STARTING GUI*****\n");
 
-    int ecode = disp.OnExecute(rooms, roomNum);
+    int ecode = disp.OnExecute(dungeon->rooms, roomNum);
 
     printf("***** CLOSING GUI*****\n");
 
-    free(rooms);
+    free(dungeon->rooms);
+    free(dungeon->mainRoomIndices);
+    free(dungeon->hallways);
 
     return ecode;
 }
@@ -296,7 +303,7 @@ void display::OnRender(rectangle_t *rooms, int roomNum) {
         dotRect.y = ((int)(rooms[room_inc].center.y) * pixPerUnit) + (SCREEN_HEIGHT / 2) - dotRect.h/2;
 
         SDL_BlitScaled(gRed, NULL, gScreenSurface, &dotRect);
-        
+
     }
     SDL_UpdateWindowSurface(sdlwindow);
 }
