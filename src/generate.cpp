@@ -129,8 +129,10 @@ edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVerti
     }
     for (int i = 0; i < numEdges; i++) {
         // Check if done
+        /*
         if (numSpanningEdges == numMainRooms - 1)
             break;
+        */
 
         int src = allEdges[i].src;
         int dest = allEdges[i].dest;
@@ -196,7 +198,7 @@ rectangle_t *generate(int numRooms, int radius) {
     }
 
 
-    // separation steering
+    // Separation steering
     if (separateRooms(rooms, numRooms))
         printf("Separation reached max iters");
 
@@ -210,6 +212,8 @@ rectangle_t *generate(int numRooms, int radius) {
     }
 
     int numTriangleVertices;
+
+    // Call Delaunay function
     int *triangleIndexList = BuildTriangleIndexList(
             (void *)pointList,
             (float)RAND_MAX,
@@ -218,7 +222,7 @@ rectangle_t *generate(int numRooms, int radius) {
             0,
             &numTriangleVertices);
 
-    // Directed edges
+    // Construct directed edges
     edge_t *allEdges = (edge_t *)calloc(numTriangleVertices * 2, sizeof(edge_t));
     for (int i = 0; i < (numTriangleVertices * 2); i++)
         allEdges[i].dist = std::numeric_limits<float>::infinity();
@@ -227,7 +231,6 @@ rectangle_t *generate(int numRooms, int radius) {
     int vertices[3];
     printf("numTriangleVertices mod 3: %d\n", (numTriangleVertices % 3));
 
-    // Set up the edges I guess?
     int edge_index = 0;
     for (int i = 0; i < numTriangleVertices; i++) {
         int vertex = triangleIndexList[i];
@@ -256,6 +259,44 @@ rectangle_t *generate(int numRooms, int radius) {
     for (int i = 0; i < numAddedEdges; i++) {
         printf("src: %d, dest: %d\n", mst[i].src, mst[i].dest);
     }
+
+    // Construct hallway points
+    hallway_t *hallways = (hallway_t *)calloc(numAddedEdges, sizeof(hallway_t));
+    for(int i = 0; i < numAddedEdges; i++) {
+        rectangle_t src_room = rooms[mst[i].src];
+        rectangle_t dest_room = rooms[mst[i].dest];
+
+        float src_left = round(src_room.center.x - (src_room.width / 2));
+        float src_right = round(src_room.center.x + (src_room.width / 2));
+        float src_top = round(src_room.center.y - (src_room.height / 2));
+        float src_bottom = round(src_room.center.y + (src_room.height / 2));
+
+        float dest_left = round(dest_room.center.x - (dest_room.width / 2));
+        float dest_right = round(dest_room.center.x + (dest_room.width / 2));
+        float dest_top = round(dest_room.center.y - (dest_room.height / 2));
+        float dest_bottom = round(dest_room.center.y + (dest_room.height / 2));
+
+        // Some are going to be duplicates due to directed graph, need t remove
+        float mid_x = ((src_room.center.x + dest_room.center.x) / 2);
+        float mid_y = round((src_room.center.y + dest_room.center.y) / 2);
+
+        if (src_left < mid_x && mid_x < src_right && dest_left < mid_x && mid_x < dest_right) {
+            hallways[i].start = {mid_x, src_room.center.y};
+            hallways[i].middle = {mid_x, dest_room.center.y};
+            hallways[i].end = {mid_x, dest_room.center.y};
+        }
+        else if (src_top < mid_y && mid_y < src_bottom && dest_top < mid_y && mid_y < dest_bottom) {
+            hallways[i].start = {src_room.center.x, mid_y};
+            hallways[i].middle = {dest_room.center.x, mid_y};
+            hallways[i].end = {dest_room.center.x, mid_y};
+        }
+        else {
+            hallways[i].start = {src_room.center.x, src_room.center.y};
+            hallways[i].middle = {src_room.center.x, dest_room.center.y};
+            hallways[i].end = {dest_room.center.x, dest_room.center.y};
+        }
+    }
+    free(hallways);  // TEMP
 
     free(pointList);
     free(main_rooms);

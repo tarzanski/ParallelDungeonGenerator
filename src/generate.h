@@ -16,6 +16,12 @@ typedef struct {
     float width;
 } rectangle_t;
 
+typedef struct {
+    point_t start;
+    point_t middle;
+    point_t end;
+} hallway_t;
+
 point_t getRandomPointInCircle(float radius);
 int separateRooms(rectangle_t *rooms, int numRooms);
 int isOverlapping(rectangle_t *rooms, int i1, int i2);
