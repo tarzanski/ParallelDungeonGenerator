@@ -59,12 +59,17 @@ void separateRooms(dungeon_t *dungeon) {
                     step_y /= dist;
                     step_x = round(step_x);
                     step_y = round(step_y);
+
+                    // I suppose its possible for the centers to be exactly equal.
+                    if (step_x == 0.0f)
+                        step_x = 1.0f;
+                    if (step_y == 0.0f)
+                        step_y = 1.0f;
+
                     rooms[i].center.x -= step_x;
                     rooms[i].center.y -= step_y;
                     rooms[j].center.x += step_x;
                     rooms[j].center.y += step_y;
-                    // I suppose its possible for the centers to be exactly equal.
-                    // Not handled here.
                 }
             }
         }
@@ -116,15 +121,18 @@ int findSubset(int a, int *parentMap) {
 // Return list of (unnecessarily directed) edges that form minimum spanning tree
 edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVertices, int numEdges, float pExtras, int *numAddedEdges_p) {
     if (pExtras < 0.0f || pExtras > 1.0f)
-        return NULL;
+        pExtras = 0.0f;
 
-    // Note: size of allEdges is numEdges * 2
     std::sort(allEdges, allEdges + numEdges, edgeLT);
 
     int numAddedEdges = 0;  // Total number of edges to use in the dungeon
     int numSpanningEdges = 0;  // Number of edges that form the MST
     edge_t *mst = (edge_t *)calloc(numEdges, sizeof(edge_t));
     int *parentMap = (int *)malloc(sizeof(int) * numVertices);
+
+    // Structure for checking if an edge has already been added
+    int *adjMatrix = (int*)calloc(numEdges * numEdges, sizeof(int));
+
     // Initialize the union find thing
     for (int i = 0; i < numVertices; i++) {
         parentMap[i] = -1;
@@ -132,6 +140,8 @@ edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVerti
     for (int i = 0; i < numEdges; i++) {
         int src = allEdges[i].src;
         int dest = allEdges[i].dest;
+        if (adjMatrix[dest + numEdges * src] || adjMatrix[src + numEdges * dest])
+            continue;
         int parentSrc = findSubset(src, parentMap);
         int parentDest = findSubset(dest, parentMap);
         if (parentSrc == parentDest) {
@@ -140,16 +150,21 @@ edge_t *findMinimumSpanningTree(edge_t *allEdges, int numMainRooms, int numVerti
             if (roll < pExtras) {
                 mst[numAddedEdges] = {src, dest, allEdges[i].dist};
                 numAddedEdges += 1;
+                adjMatrix[dest + numEdges * src] = 1;
+                adjMatrix[src + numEdges * dest] = 1;
             }
             continue;
         }
         mst[numAddedEdges] = {src, dest, allEdges[i].dist};
+        adjMatrix[dest + numEdges * src] = 1;
+        adjMatrix[src + numEdges * dest] = 1;
         numAddedEdges += 1;
         numSpanningEdges += 1;
         parentMap[parentDest] = parentSrc;
     }
     *numAddedEdges_p = numAddedEdges;
     free(parentMap);
+    free(adjMatrix);
     return mst;
 }
 
