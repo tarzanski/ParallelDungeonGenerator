@@ -215,7 +215,7 @@ void generate(dungeon_t *dungeon, int numRooms, int radius) {
     free(mainRooms);
 }
 
-void constructHallways(dungeon_t *dungeon) {
+double_edge_t* constructHallways(dungeon_t *dungeon) {
     rectangle_t *rooms = dungeon->rooms;
 
     // Get center points of main rooms
@@ -316,6 +316,12 @@ void constructHallways(dungeon_t *dungeon) {
 
     free(pointList);
     free(triangleIndexList);
-    free(allEdges);
-    free(mst);
+    // free(allEdges);
+    // free(mst);
+    double_edge_t *mst_dela = (double_edge_t*)malloc(sizeof(double_edge_t));
+    mst_dela->dela = allEdges;
+    mst_dela->mst = mst;
+    mst_dela->dela_edges = numTriangleVertices * 2;
+    mst_dela->mst_edges = numAddedEdges;
+    return mst_dela;
 }

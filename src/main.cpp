@@ -20,14 +20,18 @@ int main(int argc, char** argv) {
 
     // parse arguments if using a gui
 
-    int roomNum = 100;
+    int roomNum = 2000;
 
     dungeon_t d;
     dungeon_t *dungeon = &d;
+    double_edge_t md;
+    double_edge_t *mst_dela = &md;
+
+    // insert timing functions here
 
     generate(dungeon, roomNum, 25);
     separateRooms(dungeon);
-    constructHallways(dungeon);
+    mst_dela = constructHallways(dungeon);
 
     display disp(dungeon);
 
@@ -40,7 +44,7 @@ int main(int argc, char** argv) {
 
     printf("*****STARTING GUI*****\n");
 
-    int ecode = disp.OnExecute(dungeon);
+    int ecode = disp.OnExecute(dungeon, mst_dela);
 
     printf("***** CLOSING GUI*****\n");
 
@@ -64,6 +68,7 @@ display::display(dungeon_t *dungeon) {
     only_main = false;
     show_hallways = 0;
     dungeon_data = dungeon;
+    show_tree = 0;
 }
 
 /*
@@ -84,43 +89,51 @@ bool display::OnInit() {
         return false;
     }
 
-    gScreenSurface = SDL_GetWindowSurface(sdlwindow);
+    if ((renderer = SDL_CreateRenderer(sdlwindow, -1, 0)) == NULL) {
+        printf("Error with creating software renderer: %s\n", SDL_GetError());
+        return false;
+    }
+
+    SDL_SetRenderDrawColor(renderer,0x00,0x00,0x00,SDL_ALPHA_OPAQUE);
+    SDL_RenderPresent(renderer);
+
+    //gScreenSurface = SDL_GetWindowSurface(sdlwindow);
 
     return true;
 }
 
-SDL_Surface* loadSurface(std::string path, SDL_Surface* gScreenSurface) {
-    SDL_Surface* optimizedSurface = NULL;
+SDL_Texture* loadTexture(std::string path, SDL_Renderer* renderer) {
+    SDL_Texture* tex = NULL;
 
     SDL_Surface* loadedSurface = SDL_LoadBMP(path.c_str());
     if (loadedSurface == NULL) {
         printf("Unable to load image %s :: Error %s\n",path.c_str(), SDL_GetError());
     }
 
-    // converting surface to screen format
-    optimizedSurface = SDL_ConvertSurface(loadedSurface, gScreenSurface->format, 0);
-    if (optimizedSurface == NULL) {
-        printf("Unable to optimize image %s\n", path.c_str());
+    // converting surface to texture for rendering
+    tex = SDL_CreateTextureFromSurface(renderer, loadedSurface);
+    if (tex == NULL) {
+        printf("Unable to create texture from image %s\n", path.c_str());
     }
 
     SDL_FreeSurface(loadedSurface);
-    return optimizedSurface;
+    return tex;
 }
 
 void display::loadAssets() {
-    gRoom = loadSurface("assets/room_proto_2.bmp", gScreenSurface);
+    gRoom = loadTexture("assets/room_proto_2.bmp", renderer);
 
-    gSides = loadSurface("assets/turq_square.bmp", gScreenSurface);
+    gSides = loadTexture("assets/turq_square.bmp", renderer);
 
-    gGrey = loadSurface("assets/grey_square.bmp", gScreenSurface);
+    gGrey = loadTexture("assets/grey_square.bmp", renderer);
 
-    gRed = loadSurface("assets/red_square.bmp", gScreenSurface);
+    gRed = loadTexture("assets/red_square.bmp", renderer);
 }
 
 /*
  * Execution Loop
  */
-int display::OnExecute(dungeon_t *dungeon) {
+int display::OnExecute(dungeon_t *dungeon, double_edge_t *mst_dela) {
     if (OnInit() == false)
         return -1;
 
@@ -135,7 +148,7 @@ int display::OnExecute(dungeon_t *dungeon) {
             OnEvent(&Event);
         }
 
-        OnRender(dungeon);
+        OnRender(dungeon, mst_dela);
 
         OnLoop();
     }
@@ -185,7 +198,10 @@ void display::OnEvent(SDL_Event* event) {
             else
                 show_hallways = 0; 
 
-        }           
+        }
+        if (currentKeyStates[SDL_SCANCODE_4]) {
+            show_tree = (show_tree + 1) % 3;
+        }
     }
 }
 
@@ -213,7 +229,8 @@ void display::genBackround() {
         moverect.w = 1;
         moverect.h = SCREEN_HEIGHT;
 
-        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        //SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
     // left from origin
     for (int x = originx - pixPerUnit; x > 0; x -= pixPerUnit) {
@@ -222,7 +239,8 @@ void display::genBackround() {
         moverect.w = 1;
         moverect.h = SCREEN_HEIGHT;
 
-        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        // SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
 
 
@@ -233,7 +251,8 @@ void display::genBackround() {
         moverect.w = SCREEN_WIDTH;
         moverect.h = 1;
 
-        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        // SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
 
     // going down from origin inclusive
@@ -243,14 +262,21 @@ void display::genBackround() {
         moverect.w = SCREEN_WIDTH;
         moverect.h = 1;
 
-        SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        // SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
+        SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
+}
+
+// gets either x or y room center given ppu and width/height
+int getRoomCenter(int units, int ppu, int wh) {
+    return (units * ppu) - (((wh/2) / ppu) * ppu);
 }
 
 /*
  * Render fuction
  */
-void display::OnRender(dungeon_t *dungeon) {
+void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
+    // dungeon struct contents
     rectangle_t *rooms = dungeon->rooms;
     int roomNum = dungeon->numRooms;
     hallway_t *hallways = dungeon->hallways;
@@ -258,8 +284,16 @@ void display::OnRender(dungeon_t *dungeon) {
     int *mainRoomIndices = dungeon->mainRoomIndices;
     int mainRoomNum = dungeon->numMainRooms;
     
+    // mst_dela struct contents
+    edge_t *dela = mst_dela->dela;
+    edge_t *mst = mst_dela->mst;
+    int dela_edges = mst_dela->dela_edges;
+    int mst_edges = mst_dela->mst_edges;
+
     // clearing old frame
-    SDL_FillRect(gScreenSurface, NULL, 0x000000);
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderClear(renderer);
+    //SDL_FillRect(gScreenSurface, NULL, 0x000000);
 
     // first generate background grid
     genBackround();
@@ -294,13 +328,9 @@ void display::OnRender(dungeon_t *dungeon) {
         if (hallrect.w == 1 && hallrect.h == 1) {
             hallrect.w = 0;
         }
-        // printf("******************\n");
-        // printf("hallway %d x: %d\n",i,hallrect.x);
-        // printf("hallway %d y: %d\n",i,hallrect.y);
-        // printf("hallway %d w: %d\n",i,hallrect.w);
-        // printf("hallway %d h: %d\n",i,hallrect.h);
 
-        SDL_BlitScaled(gRed, NULL, gScreenSurface, &hallrect);
+        //SDL_BlitScaled(gRed, NULL, gScreenSurface, &hallrect);
+        SDL_RenderCopy(renderer, gRed, NULL, &hallrect);
 
         // render line for middle-->end
         int hallex = (int)hallways[i].end.x;
@@ -315,9 +345,38 @@ void display::OnRender(dungeon_t *dungeon) {
             hallrect.w = 0;
         }
 
-        SDL_BlitScaled(gRed, NULL, gScreenSurface, &hallrect);
+        //SDL_BlitScaled(gRed, NULL, gScreenSurface, &hallrect);
+        SDL_RenderCopy(renderer, gRed, NULL, &hallrect);
     }
-    SDL_UpdateWindowSurface(sdlwindow);
+
+    SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
+
+    int tree_limit = 0;
+    if (show_tree == 1) 
+        tree_limit = mst_edges;
+    if (show_tree == 2)
+        tree_limit = dela_edges;
+
+    for (int tree_inc = 0; tree_inc < tree_limit; tree_inc++) {
+        rectangle_t roomsrc;
+        rectangle_t roomdest;
+        if (show_tree == 1) {
+            roomsrc = rooms[mst[tree_inc].src];
+            roomdest = rooms[mst[tree_inc].dest];
+        }
+        else { // don't care about 0 case
+            roomsrc = rooms[dela[tree_inc].src];
+            roomdest = rooms[dela[tree_inc].dest];
+        }
+        int src_x = ((roomsrc.center.x + x_offset) * pixPerUnit) + SCREEN_WIDTH / 2;
+        int src_y = ((roomsrc.center.y + y_offset) * pixPerUnit) + SCREEN_HEIGHT / 2;
+        int dest_x = ((roomdest.center.x + x_offset) * pixPerUnit) + SCREEN_WIDTH / 2;
+        int dest_y = ((roomdest.center.y + y_offset) * pixPerUnit) + SCREEN_HEIGHT / 2;
+
+        SDL_RenderDrawLine(renderer, src_x, src_y, dest_x, dest_y);
+    }
+    SDL_RenderPresent(renderer);
+    //SDL_UpdateWindowSurface(sdlwindow);
 }
 
 void display::renderRoom(rectangle_t room) {
@@ -337,14 +396,15 @@ void display::renderRoom(rectangle_t room) {
     int units_x = (int)room.center.x + x_offset;
     int units_y = (int)room.center.y + y_offset;
 
-    roomRect.x = (units_x * pixPerUnit) - (((roomRect.w/2) / pixPerUnit) * pixPerUnit);
-    roomRect.y = (units_y * pixPerUnit) - (((roomRect.h/2) / pixPerUnit) * pixPerUnit);
+    roomRect.x = getRoomCenter(units_x, pixPerUnit, roomRect.w);
+    roomRect.y = getRoomCenter(units_y, pixPerUnit, roomRect.h);
 
     // final alignment to move origin to middle of the window
     roomRect.x += SCREEN_WIDTH / 2;
     roomRect.y += SCREEN_HEIGHT / 2;
 
-    SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
+    //SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
+    SDL_RenderCopy(renderer, gRoom, NULL, &roomRect);
 
     /********* add sides to room *********/
 
@@ -356,18 +416,21 @@ void display::renderRoom(rectangle_t room) {
     sideRect.h = roomRect.h;
     sideRect.w = 1;
 
-    SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+    //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+    SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
 
     // top side
     sideRect.h = 1;
     sideRect.w = roomRect.w;
 
-    SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+    //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+    SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
 
     // bottom side
     sideRect.y = roomRect.y + roomRect.h - 1;
 
-    SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+    //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+    SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
 
     // right side
     sideRect.x = roomRect.x + roomRect.w - 1;
@@ -375,7 +438,8 @@ void display::renderRoom(rectangle_t room) {
     sideRect.h = roomRect.h;
     sideRect.w = 1;
 
-    SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+    //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
+    SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
 
     SDL_Rect dotRect;
 
@@ -386,7 +450,8 @@ void display::renderRoom(rectangle_t room) {
     dotRect.x = (((int)(room.center.x) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2) - dotRect.w/2;
     dotRect.y = (((int)(room.center.y) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2) - dotRect.h/2;
 
-    SDL_BlitScaled(gRed, NULL, gScreenSurface, &dotRect);
+    //SDL_BlitScaled(gRed, NULL, gScreenSurface, &dotRect);
+    SDL_RenderCopy(renderer, gRed, NULL, &dotRect);
 }
 
 
@@ -394,13 +459,15 @@ void display::renderRoom(rectangle_t room) {
  * Closing function called before exit
  */
 void display::OnCleanup() {
-    SDL_FreeSurface(gRoom);
+    SDL_DestroyTexture(gSides);
 
-    SDL_FreeSurface(gGrey);
+    SDL_DestroyTexture(gRoom);
 
-    SDL_FreeSurface(gRed);
+    SDL_DestroyTexture(gGrey);
 
-    SDL_FreeSurface(gSides);
+    SDL_DestroyTexture(gRed);
+
+    SDL_DestroyRenderer(renderer);
 
     SDL_DestroyWindow(sdlwindow);
 

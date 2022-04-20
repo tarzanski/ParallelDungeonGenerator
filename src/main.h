@@ -11,11 +11,12 @@ class display {
         // SDL runtime variables
         bool running;
         SDL_Window* sdlwindow;
-        SDL_Surface* gScreenSurface;
-        SDL_Surface* gRoom;
-        SDL_Surface* gSides;
-        SDL_Surface* gGrey;
-        SDL_Surface* gRed;
+        SDL_Renderer* renderer;
+        //SDL_Surface* gScreenSurface;
+        SDL_Texture* gRoom;
+        SDL_Texture* gSides;
+        SDL_Texture* gGrey;
+        SDL_Texture* gRed;
 
         // gui display parameters
         int currRoomNumber;
@@ -24,6 +25,7 @@ class display {
         int y_offset;
         bool only_main;
         int show_hallways;
+        int show_tree; // 0 = none, 1 = mst, 2 = dela
 
         // data pointers
         dungeon_t *dungeon_data;
@@ -31,11 +33,11 @@ class display {
     public:
         // constructor
         display(dungeon_t *dungeon);
-        int OnExecute(dungeon_t *dungeon);
+        int OnExecute(dungeon_t *dungeon, double_edge_t *mst_dela);
         bool OnInit();
         void OnEvent(SDL_Event* Event);
         void OnLoop();
-        void OnRender(dungeon_t *dungeon);
+        void OnRender(dungeon_t *dungeon, double_edge_t *mst_dela);
         void OnCleanup();
 
         // other functions
