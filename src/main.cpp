@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
 
     // parse arguments if using a gui
 
-    int roomNum = 50;
+    int roomNum = 100;
 
     dungeon_t d;
     dungeon_t *dungeon = &d;
@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     separateRooms(dungeon);
     constructHallways(dungeon);
 
-    display disp;
+    display disp(dungeon);
 
     for (int i = 0; i < dungeon->numHallways; i++) {
         printf("***********Hallway #%d\n",i);
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
 /*
  * Class constructor
  */
-display::display() {
+display::display(dungeon_t *dungeon) {
     running = true;
     currRoomNumber = 0;
     pixPerUnit = 5;
@@ -63,6 +63,7 @@ display::display() {
     y_offset = 0;
     only_main = false;
     show_hallways = 0;
+    dungeon_data = dungeon;
 }
 
 /*
@@ -178,7 +179,13 @@ void display::OnEvent(SDL_Event* event) {
             show_hallways -= 1;
         if (currentKeyStates[SDL_SCANCODE_2])
             show_hallways += 1;
-            
+        if (currentKeyStates[SDL_SCANCODE_3]) {
+            if (show_hallways != dungeon_data->numHallways)
+                show_hallways = dungeon_data->numHallways;
+            else
+                show_hallways = 0; 
+
+        }           
     }
 }
 
@@ -247,7 +254,7 @@ void display::OnRender(dungeon_t *dungeon) {
     rectangle_t *rooms = dungeon->rooms;
     int roomNum = dungeon->numRooms;
     hallway_t *hallways = dungeon->hallways;
-    int hallwayNum = dungeon->numHallways;
+    //int hallwayNum = dungeon->numHallways;
     int *mainRoomIndices = dungeon->mainRoomIndices;
     int mainRoomNum = dungeon->numMainRooms;
     

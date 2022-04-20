@@ -25,9 +25,12 @@ class display {
         bool only_main;
         int show_hallways;
 
+        // data pointers
+        dungeon_t *dungeon_data;
+
     public:
         // constructor
-        display();
+        display(dungeon_t *dungeon);
         int OnExecute(dungeon_t *dungeon);
         bool OnInit();
         void OnEvent(SDL_Event* Event);
