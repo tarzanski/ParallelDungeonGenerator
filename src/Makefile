@@ -1,11 +1,11 @@
 APP_NAME=generate
 
-OBJS=generate.o
-OBJS+=main.o
 OBJS+=Clarkson-Delaunay.o
+OBJS+=generate.o
+OBJS+=main.o
 
 CXX = g++ -m64 -std=c++11
-CXXFLAGS = -I. -Wall #-O3
+CXXFLAGS = -L ../../local/lib -I include/SDL2 -Wall #-O3
 
 default: $(APP_NAME)
 
