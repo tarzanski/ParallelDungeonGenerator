@@ -271,9 +271,9 @@ double_edge_t* constructHallways(dungeon_t *dungeon) {
     // Find MST + a few extra edges
     int numAddedEdges = 0;
     edge_t *mst = findMinimumSpanningTree(allEdges, dungeon->numMainRooms, dungeon->numRooms, edge_index, P_EXTRA, &numAddedEdges);
-    for (int i = 0; i < numAddedEdges; i++) {
-        printf("src: %d, dest: %d\n", mst[i].src, mst[i].dest);
-    }
+    // for (int i = 0; i < numAddedEdges; i++) {
+    //     printf("src: %d, dest: %d\n", mst[i].src, mst[i].dest);
+    // }
 
     // Construct hallway points
     hallway_t *hallways = (hallway_t *)calloc(numAddedEdges, sizeof(hallway_t));

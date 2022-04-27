@@ -4,23 +4,30 @@
 #include <cstdlib>
 #include <cstdio>
 #include <random>
+#include <chrono>
 
 #include "generate.h"
 #include "main.h"
 #include <SDL.h>
 
+#define VSTUDIO
 
 int main(int argc, char** argv) {
 
-    // implement argument parsing
-
-    // initialize SDL interface if using a GUI
+    // getting room generation number
+    int roomNum = 500;
+    printf("Enter Number of Rooms: ");
+    scanf("%d", &roomNum);
+    printf("Generating %d Rooms\n", roomNum);
 
     // set up any timing before calling algorithm functions
+    typedef std::chrono::high_resolution_clock Clock;
+    typedef std::chrono::duration<double> dsec;
 
-    // parse arguments if using a gui
+    auto init_start = Clock::now();
+    double generate_time = 0;
 
-    int roomNum = 1000;
+    
 
     dungeon_t d;
     dungeon_t *dungeon = &d;
@@ -33,6 +40,9 @@ int main(int argc, char** argv) {
     separateRooms(dungeon);
     mst_dela = constructHallways(dungeon);
     getIncludedRooms(dungeon);
+
+    generate_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
+    printf("Dungeon Generation Time: %lfs\n", generate_time);
 
     // printf("******** MAIN ROOM IDXS ********\n");
     // for (int i = 0; i < dungeon->numMainRooms; i++) {
@@ -173,13 +183,24 @@ SDL_Texture* loadTexture(std::string path, SDL_Renderer* renderer) {
 }
 
 void display::loadAssets() {
-    gRoom = loadTexture("assets/room_proto_2.bmp", renderer);
+#ifdef VSTUDIO
+    gRoom = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\room_proto_2.bmp", renderer);
 
-    gSides = loadTexture("assets/turq_square.bmp", renderer);
+    gSides = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\turq_square.bmp", renderer);
 
-    gGrey = loadTexture("assets/grey_square.bmp", renderer);
+    gGrey = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\grey_square.bmp", renderer);
 
-    gRed = loadTexture("assets/red_square.bmp", renderer);
+    gRed = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\red_square.bmp", renderer);
+#endif
+#ifndef VSTUDIO
+    gRoom = loadTexture("room_proto_2.bmp", renderer);
+
+    gSides = loadTexture("turq_square.bmp", renderer);
+
+    gGrey = loadTexture("grey_square.bmp", renderer);
+
+    gRed = loadTexture("red_square.bmp", renderer);
+#endif
 }
 
 /*
@@ -231,13 +252,13 @@ void display::OnEvent(SDL_Event* event) {
     if (event->type == SDL_KEYDOWN) {
         const uint8_t* currentKeyStates = SDL_GetKeyboardState(NULL);
         if (currentKeyStates[SDL_SCANCODE_UP])
-            y_offset += 1;
+            y_offset += std::max(1, 10 / pixPerUnit);
         if (currentKeyStates[SDL_SCANCODE_DOWN])
-            y_offset -= 1;
+            y_offset -= std::max(1, 10 / pixPerUnit);
         if (currentKeyStates[SDL_SCANCODE_LEFT])
-            x_offset += 1;
+            x_offset += std::max(1, 10 / pixPerUnit);
         if (currentKeyStates[SDL_SCANCODE_RIGHT])
-            x_offset -= 1;
+            x_offset -= std::max(1, 10 / pixPerUnit);
         if (currentKeyStates[SDL_SCANCODE_SPACE])
             room_view = (room_view + 1) % 3;
         if (currentKeyStates[SDL_SCANCODE_1] && currRoomNumber != 0)
