@@ -14,6 +14,7 @@
 
 #include "generate.h"
 #include "Clarkson-Delaunay.h"
+#include "main.h"
 
 #define MAX_ITERS 1000
 #define P_EXTRA 0.10
@@ -324,4 +325,87 @@ double_edge_t* constructHallways(dungeon_t *dungeon) {
     mst_dela->dela_edges = numTriangleVertices * 2;
     mst_dela->mst_edges = numAddedEdges;
     return mst_dela;
+}
+
+// helper function for finding if hallway is within bounds of a room
+// takes in two hallway points, could be either start --> middle or middle --> end
+int checkBounds(float topLeftx, float topLefty, float botRightx, float botRighty, 
+                point_t* start, point_t* end) {
+    if (start->x == end->x && (start->y != end->y)) {
+        float highery = (start->y > end->y) ? start->y : end->y;
+        float lowery = (start->y > end->y) ? end->y : start->y;
+        if (start->x > topLeftx && start->x < botRightx && 
+            ((topLefty > lowery && topLefty < highery) || (botRighty > lowery && botRighty < highery))) {
+            // printf("    TLx: %f, BRx %f, Hx: %f\n", topLeftx, botRightx, start->x);
+            // printf("found vertical ");
+            return 1;
+        }
+    }
+    if (start->y == end->y && (start->x != end->x)) {
+        float higherx = (start->x > end->x) ? start->x : end->x;
+        float lowerx = (start->x > end->x) ? end->x : start->x;
+        if (start->y > topLefty && start->y < botRighty && 
+            ((topLeftx > lowerx && topLeftx < higherx) || (botRightx > lowerx && botRightx < higherx))) {
+            // printf("    TLy: %f, BRy %f, Hy: %f\n", topLefty, botRighty, start->y);
+            // printf("    TLx: %f, BRx %f, Hxs: %f, Hxe: %f\n", topLeftx, botRightx, start->x, end->x);
+            // printf("found horizontal ");
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// function to find set of non-main rooms that overlap with hallways.
+// MainRoomIndices array is ordered, can use that to avoid O(n) lookup
+void getIncludedRooms(dungeon_t* dungeon) {
+    //printf("***************************************************\n");
+    
+    int mainRoomIndex = 0;
+    for (int roomNum = 0; roomNum < dungeon->numRooms; roomNum++) {
+        // check if next main room
+        // can be done since main room index array is ordered, O(1) vs O(n)
+        if (roomNum == dungeon->mainRoomIndices[mainRoomIndex]) {
+            mainRoomIndex++;
+            // setting bit to be included
+            dungeon->rooms[roomNum].status += BIT_INCLUDED;
+            dungeon->rooms[roomNum].status += BIT_MAINROOM;
+            continue;
+        }
+        //printf("checking halls for room %d\n", roomNum);
+
+        float topLeftx = dungeon->rooms[roomNum].center.x - dungeon->rooms[roomNum].width/2;
+        float topLefty = dungeon->rooms[roomNum].center.y - dungeon->rooms[roomNum].height/2;
+        float botRightx = dungeon->rooms[roomNum].center.x + dungeon->rooms[roomNum].width/2;
+        float botRighty = dungeon->rooms[roomNum].center.y + dungeon->rooms[roomNum].height/2;
+        
+        dungeon->rooms[roomNum].status = 0;
+
+        // looping over all hallways
+        for (int hallwayNum = 0; hallwayNum < dungeon->numHallways; hallwayNum++) {
+            hallway_t* hall = &dungeon->hallways[hallwayNum];
+
+            // check if room is within bounds of hallway, either of two edges
+            // two conditions for each
+
+            // start --> middle
+            if (checkBounds(topLeftx, topLefty, botRightx, botRighty, &hall->start, &hall->middle)) {
+                dungeon->rooms[roomNum].status += BIT_INCLUDED;
+                //printf("%d\n",hallwayNum);
+                break;
+            }
+
+            if (checkBounds(topLeftx, topLefty, botRightx, botRighty, &hall->middle, &hall->end)) {
+                // included could already be set
+                if (!(dungeon->rooms[roomNum].status & BIT_INCLUDED))
+                    dungeon->rooms[roomNum].status += BIT_INCLUDED;
+                //printf("%d\n",hallwayNum);
+                break;
+            }
+        }
+
+        // if (dungeon->rooms[roomNum].include == 0)
+        //     printf("no intersections found for %d\n", roomNum);
+        
+    }
+    // printf("***************************************************\n");
 }

@@ -14,6 +14,7 @@ typedef struct {
     point_t center;
     float height;
     float width;
+    char status;
 } rectangle_t;
 
 typedef struct {
@@ -50,3 +51,6 @@ void separateRooms(dungeon_t *dungeon);
 
 /* Initializes hallways and numHallways */
 double_edge_t *constructHallways(dungeon_t *dungeon);
+
+/* finds non-main rooms to include in final generation */
+void getIncludedRooms(dungeon_t* dungeon);

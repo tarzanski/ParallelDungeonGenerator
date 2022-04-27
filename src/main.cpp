@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
 
     // parse arguments if using a gui
 
-    int roomNum = 2000;
+    int roomNum = 1000;
 
     dungeon_t d;
     dungeon_t *dungeon = &d;
@@ -32,15 +32,20 @@ int main(int argc, char** argv) {
     generate(dungeon, roomNum, 25);
     separateRooms(dungeon);
     mst_dela = constructHallways(dungeon);
+    getIncludedRooms(dungeon);
+
+    // printf("******** MAIN ROOM IDXS ********\n");
+    // for (int i = 0; i < dungeon->numMainRooms; i++) {
+    //     printf("%d\n", dungeon->mainRoomIndices[i]);
+    // }
+
+    // printf("******** ALL ROOMS ********\n");
+    // for (int i = 0; i < dungeon->numRooms; i++) {
+    //     printf("Idx: %d  \t Include: %d\n", i, dungeon->rooms[i].include);
+    // }
+
 
     display disp(dungeon);
-
-    for (int i = 0; i < dungeon->numHallways; i++) {
-        printf("***********Hallway #%d\n",i);
-        printf("start pos  x:%f y%f\n",dungeon->hallways[i].start.x, dungeon->hallways[i].start.y);
-        printf("middle pos x:%f y%f\n",dungeon->hallways[i].middle.x, dungeon->hallways[i].middle.y);
-        printf("end pos    x:%f y%f\n",dungeon->hallways[i].end.x, dungeon->hallways[i].end.y);
-    }
 
     printf("*****STARTING GUI*****\n");
 
@@ -48,13 +53,60 @@ int main(int argc, char** argv) {
 
     printf("***** CLOSING GUI*****\n");
 
+    
     free(dungeon->rooms);
     free(dungeon->mainRoomIndices);
     free(dungeon->hallways);
 
     return ecode;
+    //return 0;
 }
 
+/*****************************************************************************
+ *                            Prerender functions 
+ *****************************************************************************/
+
+// function to modify rooms when hallways touch the edge of a room
+/* function should essentially knock off the side wall of the room touching 
+   the hallway (could also be parallelized) */
+
+// int checkEdge(rectangle_t* room, hallway_t* hallway) {
+
+// }
+
+// void fixRoomEdges(dungeon_t* dungeon) {
+//     for (int roomInd = 0; roomInd < dungeon->numRooms; roomInd++) {
+//         rectangle_t* room = &dungeon->rooms[roomInd];
+//         if (!(room->status & BIT_INCLUDED))
+//             continue;
+//         // code looks familiar?
+//         float topLeftx = dungeon->rooms[roomNum].center.x - dungeon->rooms[roomNum].width/2;
+//         float topLefty = dungeon->rooms[roomNum].center.y - dungeon->rooms[roomNum].height/2;
+//         float botRightx = dungeon->rooms[roomNum].center.x + dungeon->rooms[roomNum].width/2;
+//         float botRighty = dungeon->rooms[roomNum].center.y + dungeon->rooms[roomNum].height/2;
+
+//         for (int hallInd = 0; hallInd < dungeon->numHallways; hallInd++) {
+//             hallway_t* hall = &dungeon->hallways[hallInd];
+
+//             // check both hallway segments if adjacent to current room
+//             if ()
+
+//         }
+//     }
+// }
+
+
+
+// function to deal with hallway intersections
+// create list of all hallway intersections 
+/* intersections should not exist when hallways are directly on top of eachother
+   and travelling in the same direction (this will be hard) */
+
+
+
+/*****************************************************************************
+ *                            Class / MidRender Functions
+ *****************************************************************************/
 
 /*
  * Class constructor
@@ -65,7 +117,7 @@ display::display(dungeon_t *dungeon) {
     pixPerUnit = 5;
     x_offset = 0;
     y_offset = 0;
-    only_main = false;
+    room_view = 0;
     show_hallways = 0;
     dungeon_data = dungeon;
     show_tree = 0;
@@ -187,11 +239,11 @@ void display::OnEvent(SDL_Event* event) {
         if (currentKeyStates[SDL_SCANCODE_RIGHT])
             x_offset -= 1;
         if (currentKeyStates[SDL_SCANCODE_SPACE])
-            only_main = !only_main;
-        if (currentKeyStates[SDL_SCANCODE_1] && show_hallways != 0)
-            show_hallways -= 1;
+            room_view = (room_view + 1) % 3;
+        if (currentKeyStates[SDL_SCANCODE_1] && currRoomNumber != 0)
+            currRoomNumber -= 1;
         if (currentKeyStates[SDL_SCANCODE_2])
-            show_hallways += 1;
+            currRoomNumber += 1;
         if (currentKeyStates[SDL_SCANCODE_3]) {
             if (show_hallways != dungeon_data->numHallways)
                 show_hallways = dungeon_data->numHallways;
@@ -202,6 +254,9 @@ void display::OnEvent(SDL_Event* event) {
         if (currentKeyStates[SDL_SCANCODE_4]) {
             show_tree = (show_tree + 1) % 3;
         }
+        if (currentKeyStates[SDL_SCANCODE_5]) {
+            currRoomNumber = dungeon_data->numRooms;
+        }
     }
 }
 
@@ -209,7 +264,6 @@ void display::OnEvent(SDL_Event* event) {
  * Extra loop function that tutorial had
  */
 void display::OnLoop() {
-    //currRoomNumber++;
     //SDL_Delay(125);
 }
 
@@ -278,7 +332,7 @@ int getRoomCenter(int units, int ppu, int wh) {
 void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     // dungeon struct contents
     rectangle_t *rooms = dungeon->rooms;
-    int roomNum = dungeon->numRooms;
+    //int roomNum = dungeon->numRooms;
     hallway_t *hallways = dungeon->hallways;
     //int hallwayNum = dungeon->numHallways;
     int *mainRoomIndices = dungeon->mainRoomIndices;
@@ -298,12 +352,18 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     // first generate background grid
     genBackround();
 
-    if (only_main) roomNum = mainRoomNum;
+    int roomMax = currRoomNumber;
 
-    for (int room_inc = 0; room_inc < roomNum; room_inc++) {
+    if (room_view == 1) roomMax = mainRoomNum;
 
-        if (only_main)
+    for (int room_inc = 0; room_inc < roomMax; room_inc++) {
+
+        if (room_view == 1)
             renderRoom(rooms[mainRoomIndices[room_inc]]);
+        else if (room_view == 2) {
+            if (rooms[room_inc].status && BIT_INCLUDED)
+                renderRoom(rooms[room_inc]);
+        }
         else
             renderRoom(rooms[room_inc]);
 
