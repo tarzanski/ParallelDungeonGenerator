@@ -10,7 +10,7 @@
 #include "main.h"
 #include <SDL.h>
 
-#define VSTUDIO
+// #define VSTUDIO
 
 int main(int argc, char** argv) {
 
@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
     auto init_start = Clock::now();
     double generate_time = 0;
 
-    
+
 
     dungeon_t d;
     dungeon_t *dungeon = &d;
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
 
     printf("***** CLOSING GUI*****\n");
 
-    
+
     free(dungeon->rooms);
     free(dungeon->mainRoomIndices);
     free(dungeon->hallways);
@@ -73,11 +73,11 @@ int main(int argc, char** argv) {
 }
 
 /*****************************************************************************
- *                            Prerender functions 
+ *                            Prerender functions
  *****************************************************************************/
 
 // function to modify rooms when hallways touch the edge of a room
-/* function should essentially knock off the side wall of the room touching 
+/* function should essentially knock off the side wall of the room touching
    the hallway (could also be parallelized) */
 
 // int checkEdge(rectangle_t* room, hallway_t* hallway) {
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
 
 
 // function to deal with hallway intersections
-// create list of all hallway intersections 
+// create list of all hallway intersections
 /* intersections should not exist when hallways are directly on top of eachother
    and travelling in the same direction (this will be hard) */
 
@@ -193,13 +193,13 @@ void display::loadAssets() {
     gRed = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\red_square.bmp", renderer);
 #endif
 #ifndef VSTUDIO
-    gRoom = loadTexture("room_proto_2.bmp", renderer);
+    gRoom = loadTexture("assets/room_proto_2.bmp", renderer);
 
-    gSides = loadTexture("turq_square.bmp", renderer);
+    gSides = loadTexture("assets/turq_square.bmp", renderer);
 
-    gGrey = loadTexture("grey_square.bmp", renderer);
+    gGrey = loadTexture("assets/grey_square.bmp", renderer);
 
-    gRed = loadTexture("red_square.bmp", renderer);
+    gRed = loadTexture("assets/red_square.bmp", renderer);
 #endif
 }
 
@@ -269,7 +269,7 @@ void display::OnEvent(SDL_Event* event) {
             if (show_hallways != dungeon_data->numHallways)
                 show_hallways = dungeon_data->numHallways;
             else
-                show_hallways = 0; 
+                show_hallways = 0;
 
         }
         if (currentKeyStates[SDL_SCANCODE_4]) {
@@ -358,7 +358,7 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     //int hallwayNum = dungeon->numHallways;
     int *mainRoomIndices = dungeon->mainRoomIndices;
     int mainRoomNum = dungeon->numMainRooms;
-    
+
     // mst_dela struct contents
     edge_t *dela = mst_dela->dela;
     edge_t *mst = mst_dela->mst;
@@ -390,7 +390,7 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
 
     }
 
-    
+
     SDL_Rect hallrect;
     for (int i = 0; i < show_hallways; i++) {
         // render line for start-->middle
@@ -433,7 +433,7 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
 
     int tree_limit = 0;
-    if (show_tree == 1) 
+    if (show_tree == 1)
         tree_limit = mst_edges;
     if (show_tree == 2)
         tree_limit = dela_edges;
