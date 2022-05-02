@@ -8,6 +8,7 @@
 
 #include "generate.h"
 #include "main.h"
+#include "masks.h"
 #include <SDL.h>
 
 // #define VSTUDIO
@@ -26,8 +27,7 @@ int main(int argc, char** argv) {
 
     auto init_start = Clock::now();
     double generate_time = 0;
-
-
+    double time_difference = 0;
 
     dungeon_t d;
     dungeon_t *dungeon = &d;
@@ -37,12 +37,26 @@ int main(int argc, char** argv) {
     // insert timing functions here
 
     generate(dungeon, roomNum, 25);
-    separateRooms(dungeon);
-    mst_dela = constructHallways(dungeon);
-    getIncludedRooms(dungeon);
+    generate_time = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
+    printf("Initial Room Generation Time: %lfs\n", generate_time);
 
-    generate_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
-    printf("Dungeon Generation Time: %lfs\n", generate_time);
+    separateRooms(dungeon);
+    time_difference = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count() - generate_time;
+    generate_time += time_difference;
+    printf("Room Separation Time: %lfs\n", time_difference);
+
+    mst_dela = constructHallways(dungeon);
+    time_difference = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count() - generate_time;
+    generate_time += time_difference;
+    printf("MST and Delaunay Time: %lfs\n", time_difference);
+
+    getIncludedRooms(dungeon);
+    time_difference = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count() - generate_time;
+    generate_time += time_difference;
+    printf("Included Rooms Time: %lfs\n", time_difference);
+
+    generate_time = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
+    printf("Total Dungeon Generation Time: %lfs\n", generate_time);
 
     // printf("******** MAIN ROOM IDXS ********\n");
     // for (int i = 0; i < dungeon->numMainRooms; i++) {
@@ -276,6 +290,8 @@ void display::OnEvent(SDL_Event* event) {
             show_tree = (show_tree + 1) % 3;
         }
         if (currentKeyStates[SDL_SCANCODE_5]) {
+            room_view = 2;
+            show_hallways = dungeon_data->numHallways;
             currRoomNumber = dungeon_data->numRooms;
         }
     }
