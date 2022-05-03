@@ -1,4 +1,8 @@
 
+#define BIT_OVERLAPPING 1 << 6
+
+#define BIT_NO_MOVE 1 << 7
+
 // struct typedefs are entirely uniform
 // one struct exists for the entire program
 typedef uniform struct {
@@ -41,8 +45,9 @@ static inline int isOverlapping(uniform rectangle_t rooms[], int i1, int i2, uni
 export uniform int anyOverlapping_ispc(uniform rectangle_t rooms[], uniform int numRooms) {
     uniform int overlap = 0;
     for (uniform int i = 0; i < numRooms; i++) {
+        int prog_i = i;
         for (uniform int j = 0; j < numRooms; j += programCount) {
-            if(isOverlapping(rooms, i, j + programIndex, numRooms)) {
+            if(isOverlapping(rooms, prog_i, j + programIndex, numRooms)) {
                 overlap = 1;
                 return overlap;
             }
@@ -53,6 +58,41 @@ export uniform int anyOverlapping_ispc(uniform rectangle_t rooms[], uniform int 
     return overlap;
 }
 
-export void seperate_ispc(uniform rectangle_t rooms[], uniform int numRooms) {
+// ispc version of inside loop of seperateRooms function
+export void separate_ispc(uniform rectangle_t rooms[], uniform int numRooms) {
+    for (uniform int i = 0; i < numRooms; i++) {
+        int prog_i = i + programIndex;
+        for (uniform int j = 0; j < numRooms; j += programCount) {
+            int prog_j = j + programIndex;
+            if (prog_i == prog_j)
+                continue;
+            
+            if (isOverlapping(rooms, prog_i, prog_j, numRooms)) {
+                //print("FOUND OVERLAP rooms i:% j:%\n",prog_i,prog_j);
+                float step_x = rooms[prog_j].center.x - rooms[prog_i].center.x;
+                float step_y = rooms[prog_j].center.y - rooms[prog_i].center.y;
+                //print("step_x: %\n",step_x);
+                //print("step_y: %\n",step_y);
+                float dist = sqrt((step_x * step_x) + (step_y * step_y));
+                //print("DIST: %\n",dist);
+                if (round(dist) == 0)
+                    dist = 0.001f;
+                step_x /= dist;
+                step_y /= dist; 
+                step_x = round(step_x);
+                step_y = round(step_y);
 
+                if (step_x == 0.0f)
+                    step_x = 1.0f;
+                if (step_y == 0.0f)
+                    step_y = 1.0f;
+                //print("Moving room % by \n*** X:% \n*** Y:%\n",prog_i, 0-step_x, 0-step_y);
+                //print("Moving room % by \n*** X:% \n*** Y:%\n",prog_j, step_x, step_y);
+                rooms[prog_i].center.x -= step_x;
+                rooms[prog_i].center.y -= step_y;
+                rooms[prog_j].center.x += step_x;
+                rooms[prog_j].center.y += step_y;
+            }
+        }
+    }
 }

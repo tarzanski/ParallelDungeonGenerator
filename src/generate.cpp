@@ -5,21 +5,20 @@
  * https://www.gamedeveloper.com/programming/procedural-dungeon-generation-algorithm
  */
 
-#define ISPC
-
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
 #include <random>
 #include <limits>
 #include <algorithm>
+#include <chrono>
 
 #include "generate.h"
+#include "main.h"
 #ifdef ISPC
 #include "ispc/objs/generate_ispc.h"
 #endif
 #include "Clarkson-Delaunay.h"
-#include "main.h"
 
 #define MAX_ITERS 5000
 #define P_EXTRA 0.10
@@ -44,18 +43,32 @@ point_t getRandomPointInCircle(float radius) {
 // Move the centers of the rooms away from each other
 // stackoverflow.com/questions/70806500/separation-steering-algorithm-for-separationg-set-of-rectangles/
 void separateRooms(dungeon_t *dungeon) {
+    // extra timing code for analysis
+    typedef std::chrono::high_resolution_clock Clock;
+    typedef std::chrono::duration<double> dsec;
+    
     rectangle_t *rooms = dungeon->rooms;
     int num_iters = 0;
+
+    auto start = Clock::now();
+    double anyoverlap_time = 0; 
+
 #ifdef ISPC
     using namespace ispc;
     while (anyOverlapping_ispc((ispc::$anon3*)rooms, dungeon->numRooms)) {
 #else
     while (anyOverlapping(rooms, dungeon->numRooms)) {
 #endif
+        anyoverlap_time += std::chrono::duration_cast<dsec>(Clock::now() - start).count();
+        //printf("anyOverlapping Time: %lfs\n", anyoverlap_time);
+        
         if (num_iters >= MAX_ITERS) {
             printf("Did not converge in %d iterations\n", num_iters);
             return;
         }
+#ifdef ISPC
+        separate_ispc((ispc::$anon3*)rooms, dungeon->numRooms);
+#else
         for (int i = 0; i < dungeon->numRooms; i++) {
             for (int j = 0; j < dungeon->numRooms; j++) {
                 if (i == j)
@@ -84,9 +97,16 @@ void separateRooms(dungeon_t *dungeon) {
                 }
             }
         }
+#endif
         num_iters += 1;
+        start = Clock::now();
     }
+    printf("Average anyOverlapping Time = %lfs\n",anyoverlap_time / num_iters);
     printf("Converged in %d iterations\n", num_iters);
+    if (anyOverlapping(rooms, dungeon->numRooms) == 0)
+        printf("No Overlap Verified by Sequential anyOverlapping\n");
+    else
+        printf("SEQUENTIAL anyOverlapping RETURNED 0\n");
 }
 
 int isOverlapping(rectangle_t *rooms, int i1, int i2) {

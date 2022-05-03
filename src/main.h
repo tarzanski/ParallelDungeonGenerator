@@ -1,6 +1,10 @@
 
 #include <SDL.h>
 
+// generate constants
+#define ISPC
+#define DEBUG
+
 // one extra pixel so all lines can be drawn
 #define SCREEN_WIDTH 1280
 
@@ -18,6 +22,10 @@
 #define BIT_NO_L_EDGE 1 << 4
 
 #define BIT_NO_R_EDGE 1 << 5
+
+#define BIT_OVERLAPPING 1 << 6
+
+#define BIT_NO_MOVE 1 << 7
 
 class display {
     private:

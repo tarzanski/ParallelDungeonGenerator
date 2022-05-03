@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
 
     // printf("******** ALL ROOMS ********\n");
     // for (int i = 0; i < dungeon->numRooms; i++) {
-    //     printf("Idx: %d  \t Include: %d\n", i, dungeon->rooms[i].include);
+    //     printf("Idx: %d X:%f Y:%f\n", i, dungeon->rooms[i].center.x, dungeon->rooms[i].center.y);
     // }
 
 
@@ -203,8 +203,9 @@ void display::loadAssets() {
     gGrey = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\grey_square.bmp", renderer);
 
     gRed = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\red_square.bmp", renderer);
-#endif
-#ifndef VSTUDIO
+#else
+#ifdef ISPC
+
     gRoom = loadTexture("../assets/room_proto_2.bmp", renderer);
 
     gSides = loadTexture("../assets/turq_square.bmp", renderer);
@@ -212,6 +213,15 @@ void display::loadAssets() {
     gGrey = loadTexture("../assets/grey_square.bmp", renderer);
 
     gRed = loadTexture("../assets/red_square.bmp", renderer);
+#else
+    gRoom = loadTexture("assets/room_proto_2.bmp", renderer);
+
+    gSides = loadTexture("assets/turq_square.bmp", renderer);
+
+    gGrey = loadTexture("assets/grey_square.bmp", renderer);
+
+    gRed = loadTexture("assets/red_square.bmp", renderer);
+#endif
 #endif
 }
 
