@@ -12,12 +12,17 @@
 #include <limits>
 #include <algorithm>
 
+#include <cuda.h>
+#include <cuda_runtime.h>
+
 #include "generate.h"
 #include "Clarkson-Delaunay.h"
 #include "masks.h"
 
 #define MAX_ITERS 1000
 #define P_EXTRA 0.10
+
+#define BLOCK_DIM 256
 
 // Get random point in a circle of a certain radius
 point_t getRandomPointInCircle(float radius) {
@@ -36,10 +41,123 @@ point_t getRandomPointInCircle(float radius) {
     return p;
 }
 
+// Check if two rectangles overlap
+__device__ __inline__ int device_isOverlapping(rectangle_t *rooms, int i1, int i2) {
+    if (i1 == i2)
+        return 0;
+    float left1 = rooms[i1].center.x - (rooms[i1].width / 2);
+    float right1 = rooms[i1].center.x + (rooms[i1].width / 2);
+    float bottom1 = rooms[i1].center.y + (rooms[i1].height / 2);
+    float top1 = rooms[i1].center.y - (rooms[i1].height / 2);
+
+    float left2 = rooms[i2].center.x - (rooms[i2].width / 2);
+    float right2 = rooms[i2].center.x + (rooms[i2].width / 2);
+    float bottom2 = rooms[i2].center.y + (rooms[i2].height / 2);
+    float top2 = rooms[i2].center.y - (rooms[i2].height / 2);
+    if (right1 < left2 || right2 < left1)
+        return 0;
+    if (bottom1 < top2 || bottom2 < top1)
+        return 0;
+    return 1;
+}
+
+// Check if a rectangle is overlapping any others
+__device__ __inline__ int device_anyOverlapping(rectangle_t *rooms, int numRooms) {
+    for (int i = 0; i < numRooms; i++) {
+        for (int j = 0; j < numRooms; j++) {
+            if (device_isOverlapping(rooms, i, j))
+                return 1;
+        }
+    }
+    return 0;
+}
+
+// Check if a specific rectangle is overlapping any others
+__device__ __inline__ int device_oneOverlapping(rectangle_t *rooms, int numRooms, int index) {
+    for (int j = 0; j < numRooms; j++) {
+        if (device_isOverlapping(rooms, index, j))
+            return 1;
+    }
+    return 0;
+}
+
+
+// Kernel function for separating rooms
+__global__ void separate_rooms_kernel(rectangle_t *rooms, int numRooms, int *locks) {
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index >= numRooms)
+        return;
+    while (device_anyOverlapping(rooms, numRooms)) {
+        locks[index] = 0;
+        __syncthreads();
+        for (int i = 0; i < numRooms; i++) {
+            int j = (i + index) % numRooms;
+            if (j == index)
+                continue;
+            if (device_isOverlapping(rooms, index, j)) {
+                if (atomicCAS(&locks[index], 0, 1) != 0) {
+                    continue;
+                }
+                if (atomicCAS(&locks[j], 0, 1) != 0) {
+                    locks[index] = 0;
+                    continue;
+                }
+                float step_x = rooms[j].center.x - rooms[index].center.x;
+                float step_y = rooms[j].center.y - rooms[index].center.y;
+                float dist = sqrt(pow(step_x, 2) + pow(step_y, 2));
+                if (round(dist) == 0)
+                    dist = 0.001f;
+                step_x /= dist;
+                step_y /= dist;
+                step_x = round(step_x);
+                step_y = round(step_y);
+
+                // I suppose its possible for the centers to be exactly equal.
+                if (step_x == 0.0f)
+                    step_x = 1.0f;
+                if (step_y == 0.0f)
+                    step_y = 1.0f;
+
+                rooms[index].center.x -= step_x;
+                rooms[index].center.y -= step_y;
+                rooms[j].center.x += step_x;
+                rooms[j].center.y += step_y;
+
+                /*
+                atomicAdd_system(&rooms[index].center.x, -1 * step_x);
+                atomicAdd_system(&rooms[index].center.y, -1 * step_y);
+                atomicAdd_system(&rooms[j].center.x, step_x);
+                atomicAdd_system(&rooms[j].center.y, step_y);
+                break;
+                */
+            }
+        }
+        __syncthreads();
+    }
+}
+
 // Move the centers of the rooms away from each other
 // stackoverflow.com/questions/70806500/separation-steering-algorithm-for-separationg-set-of-rectangles/
 void separateRooms(dungeon_t *dungeon) {
     rectangle_t *rooms = dungeon->rooms;
+
+    rectangle_t *device_rooms;
+    int *device_locks;
+    cudaMalloc(&device_rooms, sizeof(rectangle_t) * dungeon->numRooms);
+    cudaMalloc(&device_locks, sizeof(int) * dungeon->numRooms);
+    cudaMemcpy(device_rooms, rooms, sizeof(rectangle_t) * dungeon->numRooms, cudaMemcpyHostToDevice);
+
+    int numBlocks = (dungeon->numRooms + BLOCK_DIM - 1) / BLOCK_DIM;
+
+    /*
+    dim3 blockDim(BLOCK_DIM, 1);
+    dim3 gridDim(numBlocks);
+    */
+    separate_rooms_kernel<<<numBlocks, BLOCK_DIM>>>(device_rooms, dungeon->numRooms, device_locks);
+
+    cudaMemcpy(rooms, device_rooms, sizeof(rectangle_t) * dungeon->numRooms, cudaMemcpyDeviceToHost);
+
+    /*
     int num_iters = 0;
     while (anyOverlapping(rooms, dungeon->numRooms)) {
         if (num_iters >= MAX_ITERS) {
@@ -77,6 +195,9 @@ void separateRooms(dungeon_t *dungeon) {
         num_iters += 1;
     }
     printf("Converged in %d iterations\n", num_iters);
+    */
+    cudaFree(device_rooms);
+    cudaFree(device_locks);
 }
 
 int isOverlapping(rectangle_t *rooms, int i1, int i2) {
