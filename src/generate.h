@@ -39,6 +39,14 @@ typedef struct {
     int mst_edges;
 } double_edge_t;
 
+// #ifdef __cplusplus
+// extern "C" {
+// #endif // __cplusplus
+//     extern void anyOverlapping_ispc(rectangle_t* rooms, int numRooms);
+// #ifdef __cplusplus
+// }
+// #endif // __cplusplus
+
 point_t getRandomPointInCircle(float radius);
 int isOverlapping(rectangle_t *rooms, int i1, int i2);
 int anyOverlapping(rectangle_t *rooms, int numRooms);

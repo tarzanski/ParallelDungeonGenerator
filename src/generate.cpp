@@ -5,6 +5,8 @@
  * https://www.gamedeveloper.com/programming/procedural-dungeon-generation-algorithm
  */
 
+#define ISPC
+
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
@@ -13,10 +15,13 @@
 #include <algorithm>
 
 #include "generate.h"
+#ifdef ISPC
+#include "ispc/objs/generate_ispc.h"
+#endif
 #include "Clarkson-Delaunay.h"
 #include "main.h"
 
-#define MAX_ITERS 1000
+#define MAX_ITERS 5000
 #define P_EXTRA 0.10
 
 // Get random point in a circle of a certain radius
@@ -41,7 +46,12 @@ point_t getRandomPointInCircle(float radius) {
 void separateRooms(dungeon_t *dungeon) {
     rectangle_t *rooms = dungeon->rooms;
     int num_iters = 0;
+#ifdef ISPC
+    using namespace ispc;
+    while (anyOverlapping_ispc((ispc::$anon3*)rooms, dungeon->numRooms)) {
+#else
     while (anyOverlapping(rooms, dungeon->numRooms)) {
+#endif
         if (num_iters >= MAX_ITERS) {
             printf("Did not converge in %d iterations\n", num_iters);
             return;

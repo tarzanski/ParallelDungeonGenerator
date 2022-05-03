@@ -1,19 +1,25 @@
 APP_NAME=generate
 
-OBJS+=Clarkson-Delaunay.o
-OBJS+=generate.o
-OBJS+=main.o
+OBJS+=$(OBJDIR)/Clarkson-Delaunay.o
+OBJS+=$(OBJDIR)/generate.o
+OBJS+=$(OBJDIR)/main.o
+OBJDIR=objs
 
 CXX = g++ -m64 -std=c++11
-CXXFLAGS = -L ../../local/lib -I include/SDL2 -Wall #-O3
+CXXFLAGS = -L ../../local/lib -I include/SDL2 -Wall `sdl2-config --cflags --libs`#-O3
+
+.PHONY: clean
 
 default: $(APP_NAME)
 
-$(APP_NAME): $(OBJS)
-	$(CXX) $(CXXFLAGS) `sdl2-config --cflags --libs` -o $@ $(OBJS)
+dirs:
+	/bin/mkdir -p $(OBJDIR)/
 
-%.o: %.cpp
-	$(CXX) $< $(CXXFLAGS) `sdl2-config --cflags --libs` -c -o $@
+$(APP_NAME): dirs $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
+
+$(OBJDIR)/%.o: %.cpp
+	$(CXX) $< $(CXXFLAGS) -c -o $@
 
 clean:
-	/bin/rm -rf *~ *.o $(APP_NAME)
+	/bin/rm -rf *~ *.o $(APP_NAME) $(OBJDIR)

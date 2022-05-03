@@ -10,7 +10,7 @@
 #include "main.h"
 #include <SDL.h>
 
-#define VSTUDIO
+//#define VSTUDIO
 
 int main(int argc, char** argv) {
 
@@ -26,8 +26,10 @@ int main(int argc, char** argv) {
 
     auto init_start = Clock::now();
     double generate_time = 0;
-
-    
+    double separate_time = 0;
+    double hallway_time = 0;
+    double inclusion_time = 0;
+    double full_time = 0;
 
     dungeon_t d;
     dungeon_t *dungeon = &d;
@@ -35,14 +37,24 @@ int main(int argc, char** argv) {
     double_edge_t *mst_dela = &md;
 
     // insert timing functions here
-
+    auto generate_start = Clock::now();
     generate(dungeon, roomNum, 25);
+    generate_time += std::chrono::duration_cast<dsec>(Clock::now() - generate_start).count();
+    printf("Generation Time: %lfs\n", generate_time);
+    auto separate_start = Clock::now();
     separateRooms(dungeon);
+    separate_time += std::chrono::duration_cast<dsec>(Clock::now() - separate_start).count();
+    printf("Seperation Time: %lfs\n", separate_time);
+    auto hallway_start = Clock::now();
     mst_dela = constructHallways(dungeon);
+    hallway_time += std::chrono::duration_cast<dsec>(Clock::now() - hallway_start).count();
+    printf("Hallway Generation Time: %lfs\n", hallway_time);
+    auto inclusion_start = Clock::now();
     getIncludedRooms(dungeon);
-
-    generate_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
-    printf("Dungeon Generation Time: %lfs\n", generate_time);
+    inclusion_time += std::chrono::duration_cast<dsec>(Clock::now() - inclusion_start).count();
+    printf("Inclusion Time: %lfs\n", inclusion_time);
+    full_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
+    printf("Full Generation Time: %lfs\n", full_time);
 
     // printf("******** MAIN ROOM IDXS ********\n");
     // for (int i = 0; i < dungeon->numMainRooms; i++) {
@@ -138,7 +150,7 @@ display::display(dungeon_t *dungeon) {
  */
 bool display::OnInit() {
     if(SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-        printf("Error with initing SDL\n");
+        printf("Error with initing SDL\nSDL Error: %s\n", SDL_GetError());
         return false;
     }
 
@@ -193,13 +205,13 @@ void display::loadAssets() {
     gRed = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\red_square.bmp", renderer);
 #endif
 #ifndef VSTUDIO
-    gRoom = loadTexture("room_proto_2.bmp", renderer);
+    gRoom = loadTexture("../assets/room_proto_2.bmp", renderer);
 
-    gSides = loadTexture("turq_square.bmp", renderer);
+    gSides = loadTexture("../assets/turq_square.bmp", renderer);
 
-    gGrey = loadTexture("grey_square.bmp", renderer);
+    gGrey = loadTexture("../assets/grey_square.bmp", renderer);
 
-    gRed = loadTexture("red_square.bmp", renderer);
+    gRed = loadTexture("../assets/red_square.bmp", renderer);
 #endif
 }
 
