@@ -24,12 +24,13 @@ typedef struct {
 } hallway_t;
 
 typedef struct {
+    rectangle_t *rooms;
+    hallway_t *hallways;
     int numRooms;
     int numMainRooms;
     int numHallways;
-    rectangle_t *rooms;
     int *mainRoomIndices;
-    hallway_t *hallways;
+    int numIters;
 } dungeon_t;
 
 typedef struct {
@@ -55,7 +56,7 @@ int anyOverlapping(rectangle_t *rooms, int numRooms);
 void generate(dungeon_t *dungeon, int numRooms, int radius);
 
 /* Separates room centers */
-void separateRooms(dungeon_t *dungeon);
+void separateRooms(dungeon_t *dungeon, rectangle_t **room_data, int animate);
 
 /* Initializes hallways and numHallways */
 double_edge_t *constructHallways(dungeon_t *dungeon);

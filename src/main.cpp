@@ -5,12 +5,22 @@
 #include <cstdio>
 #include <random>
 #include <chrono>
+#include <algorithm>
 
 #include "generate.h"
 #include "main.h"
 #include <SDL.h>
 
 int main(int argc, char** argv) {
+
+    int animate = 0;
+    rectangle_t **room_data = NULL;
+    // checking for -a animate flag
+    if (std::find(argv, argv + argc, "-a")) {
+        printf("Running with ANIMATE flag (-a), computation time WILL be slower.\n");
+        animate = 1;
+        room_data = (rectangle_t **)malloc(sizeof(rectangle_t *) * MAX_ITERS);
+    }
 
     // getting room generation number
     int roomNum = 500;
@@ -21,7 +31,6 @@ int main(int argc, char** argv) {
     // set up any timing before calling algorithm functions
     typedef std::chrono::high_resolution_clock Clock;
     typedef std::chrono::duration<double> dsec;
-
     auto init_start = Clock::now();
     double generate_time = 0;
     double separate_time = 0;
@@ -39,18 +48,22 @@ int main(int argc, char** argv) {
     generate(dungeon, roomNum, 25);
     generate_time += std::chrono::duration_cast<dsec>(Clock::now() - generate_start).count();
     printf("Generation Time: %lfs\n", generate_time);
+
     auto separate_start = Clock::now();
-    separateRooms(dungeon);
+    separateRooms(dungeon, room_data, animate);
     separate_time += std::chrono::duration_cast<dsec>(Clock::now() - separate_start).count();
     printf("Seperation Time: %lfs\n", separate_time);
+    
     auto hallway_start = Clock::now();
     mst_dela = constructHallways(dungeon);
     hallway_time += std::chrono::duration_cast<dsec>(Clock::now() - hallway_start).count();
     printf("Hallway Generation Time: %lfs\n", hallway_time);
+    
     auto inclusion_start = Clock::now();
     getIncludedRooms(dungeon);
     inclusion_time += std::chrono::duration_cast<dsec>(Clock::now() - inclusion_start).count();
     printf("Inclusion Time: %lfs\n", inclusion_time);
+    
     full_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
     printf("Full Generation Time: %lfs\n", full_time);
 
@@ -65,7 +78,7 @@ int main(int argc, char** argv) {
     // }
 
 
-    display disp(dungeon);
+    display disp(dungeon, animate, room_data);
 
     printf("*****STARTING GUI*****\n");
 
@@ -131,16 +144,19 @@ int main(int argc, char** argv) {
 /*
  * Class constructor
  */
-display::display(dungeon_t *dungeon) {
+display::display(dungeon_t *dungeon, int animate_set, rectangle_t **room_hist) {
     running = true;
-    currRoomNumber = 0;
+    currRoomNumber = dungeon->numRooms;
+    room_data = room_hist;
     pixPerUnit = 5;
     x_offset = 0;
     y_offset = 0;
     room_view = 0;
     show_hallways = 0;
     dungeon_data = dungeon;
+    animate = animate_set;
     show_tree = 0;
+    animate_on = 0;
 }
 
 /*
@@ -232,13 +248,25 @@ int display::OnExecute(dungeon_t *dungeon, double_edge_t *mst_dela) {
 
     loadAssets();
 
-    genBackround();
+    // genBackground();
 
     SDL_Event Event;
+
+    int animate_sep_step = 0;
 
     while (running) {
         while (SDL_PollEvent(&Event)) {
             OnEvent(&Event);
+        }
+
+        // stay in seperate render function for animation
+        if (animate_on == 1) {
+            if (animation(animate_sep_step) == 1) {
+                animate_on = 0;
+                animate_sep_step = 0;
+            }
+            animate_sep_step += 1;
+            continue;
         }
 
         OnRender(dungeon, mst_dela);
@@ -290,13 +318,16 @@ void display::OnEvent(SDL_Event* event) {
                 show_hallways = dungeon_data->numHallways;
             else
                 show_hallways = 0; 
-
         }
         if (currentKeyStates[SDL_SCANCODE_4]) {
             show_tree = (show_tree + 1) % 3;
         }
         if (currentKeyStates[SDL_SCANCODE_5]) {
             currRoomNumber = dungeon_data->numRooms;
+        }
+        if (currentKeyStates[SDL_SCANCODE_A]) {
+            if (animate)
+                animate_on = 1;
         }
     }
 }
@@ -311,7 +342,7 @@ void display::OnLoop() {
 /*
  * Generating the background image
  */
-void display::genBackround() {
+void display::genBackground() {
     // going right from origin inclusive
     int originx = SCREEN_WIDTH / 2;
     int originy = SCREEN_HEIGHT / 2;
@@ -391,7 +422,7 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     //SDL_FillRect(gScreenSurface, NULL, 0x000000);
 
     // first generate background grid
-    genBackround();
+    genBackground();
 
     int roomMax = currRoomNumber;
 
@@ -553,6 +584,36 @@ void display::renderRoom(rectangle_t room) {
 
     //SDL_BlitScaled(gRed, NULL, gScreenSurface, &dotRect);
     SDL_RenderCopy(renderer, gRed, NULL, &dotRect);
+}
+
+/*
+ * Animation function
+ */
+int display::animation(int animate_sep_step) {
+
+    // SET PIX_PER_UNIT BASED ON ROOMNUM HERE???????
+
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderClear(renderer);
+    display::genBackground();
+
+        
+    if (animate_sep_step < dungeon_data->numIters) {
+
+        // total animation time should take max_sec ns (i believe it's ns)
+        int max_sec = 20000; // 20 seconds, felt like a good balance
+        int iter_delay = max_sec / dungeon_data->numIters;
+
+        rectangle_t* iter_rooms = room_data[animate_sep_step];
+        for (int curr_room = 0; curr_room < dungeon_data->numRooms; curr_room++) {
+            renderRoom(iter_rooms[curr_room]);
+        }
+        printf("sep_iter: %d iter_delay: %d\n",animate_sep_step, iter_delay);
+        SDL_RenderPresent(renderer);
+        SDL_Delay(iter_delay);
+        return 0;
+    }
+    return 1;
 }
 
 

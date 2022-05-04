@@ -12,6 +12,7 @@
 #include <limits>
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 
 #include "generate.h"
 #include "main.h"
@@ -20,7 +21,6 @@
 #endif
 #include "Clarkson-Delaunay.h"
 
-#define MAX_ITERS 5000
 #define P_EXTRA 0.10
 
 // Get random point in a circle of a certain radius
@@ -42,7 +42,7 @@ point_t getRandomPointInCircle(float radius) {
 
 // Move the centers of the rooms away from each other
 // stackoverflow.com/questions/70806500/separation-steering-algorithm-for-separationg-set-of-rectangles/
-void separateRooms(dungeon_t *dungeon) {
+void separateRooms(dungeon_t *dungeon, rectangle_t **room_data, int animate) {
     // extra timing code for analysis
     typedef std::chrono::high_resolution_clock Clock;
     typedef std::chrono::duration<double> dsec;
@@ -74,7 +74,7 @@ void separateRooms(dungeon_t *dungeon) {
         }
 #ifdef ISPC
         separate_ispc_withtasks(
-#ifdef VSTUDIO
+#ifdef VSTUDIO // workaround to match typing with ISPC internals
             (ispc::$anon1*)
 #else            
             (ispc::$anon3*)
@@ -110,11 +110,20 @@ void separateRooms(dungeon_t *dungeon) {
             }
         }
 #endif
+
+        // storing room data if animating seperation
+        if (animate == 1) {
+            rectangle_t *iter_room_data = (rectangle_t*)malloc(sizeof(rectangle_t) * dungeon->numRooms);
+            memcpy(iter_room_data, dungeon->rooms, sizeof(rectangle_t) * dungeon->numRooms);
+            room_data[num_iters] = iter_room_data;
+        }
+
         num_iters += 1;
         start = Clock::now();
     }
     printf("Average anyOverlapping Time = %lfs\n",anyoverlap_time / num_iters);
     printf("Converged in %d iterations\n", num_iters);
+    dungeon->numIters = num_iters;
     if (anyOverlapping(rooms, dungeon->numRooms) == 0)
         printf("No Overlap Verified by Sequential anyOverlapping\n");
     else

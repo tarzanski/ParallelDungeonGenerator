@@ -3,7 +3,9 @@
 
 // generate constants
 #define ISPC
-#define DEBUG
+#define MAX_ITERS 5000
+#define VSTUDIO
+
 
 // one extra pixel so all lines can be drawn
 #define SCREEN_WIDTH 1280
@@ -22,10 +24,6 @@
 #define BIT_NO_L_EDGE 1 << 4
 
 #define BIT_NO_R_EDGE 1 << 5
-
-#define BIT_OVERLAPPING 1 << 6
-
-#define BIT_NO_MOVE 1 << 7
 
 class display {
     private:
@@ -47,13 +45,16 @@ class display {
         int room_view; // 0 = all, 1 = main, 2 = included
         int show_hallways;
         int show_tree; // 0 = none, 1 = mst, 2 = dela
+        int animate; // 0 = no animaion 1 = can animate
+        int animate_on; // 0 = off, 1 = on
 
         // data pointers
         dungeon_t *dungeon_data;
+        rectangle_t **room_data;
 
     public:
         // constructor
-        display(dungeon_t *dungeon);
+        display(dungeon_t *dungeon, int animate_set, rectangle_t **room_hist);
         int OnExecute(dungeon_t *dungeon, double_edge_t *mst_dela);
         bool OnInit();
         void OnEvent(SDL_Event* Event);
@@ -62,7 +63,8 @@ class display {
         void OnCleanup();
 
         // other functions
-        void genBackround();
+        void genBackground();
         void loadAssets();
         void renderRoom(rectangle_t room);
+        int animation(int animate_sep_step);
 };
