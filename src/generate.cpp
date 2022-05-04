@@ -55,7 +55,13 @@ void separateRooms(dungeon_t *dungeon) {
 
 #ifdef ISPC
     using namespace ispc;
-    while (anyOverlapping_ispc((ispc::$anon3*)rooms, dungeon->numRooms)) {
+    while (anyOverlapping_ispc(
+#ifdef VSTUDIO
+        (ispc::$anon1*)
+#else
+        (ispc::$anon3*)
+#endif
+        rooms, dungeon->numRooms)) {
 #else
     while (anyOverlapping(rooms, dungeon->numRooms)) {
 #endif
@@ -67,7 +73,13 @@ void separateRooms(dungeon_t *dungeon) {
             return;
         }
 #ifdef ISPC
-        separate_ispc_withtasks((ispc::$anon3*)rooms, dungeon->numRooms);
+        separate_ispc_withtasks(
+#ifdef VSTUDIO
+            (ispc::$anon1*)
+#else            
+            (ispc::$anon3*)
+#endif
+            rooms, dungeon->numRooms);
 #else
         for (int i = 0; i < dungeon->numRooms; i++) {
             for (int j = 0; j < dungeon->numRooms; j++) {

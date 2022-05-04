@@ -10,8 +10,6 @@
 #include "main.h"
 #include <SDL.h>
 
-//#define VSTUDIO
-
 int main(int argc, char** argv) {
 
     // getting room generation number

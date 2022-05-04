@@ -95,7 +95,7 @@ export void separate_ispc(uniform rectangle_t rooms[], uniform int numRooms) {
 
 // ******************* Task Version *******************
 
-#define NUM_TASKS 10
+#define NUM_TASKS 20
 
 // task kernel, slightly different
 task void separate_ispc_task (uniform rectangle_t rooms[], uniform int numRooms) {
