@@ -11,7 +11,7 @@ CXX = g++ -m64 -std=c++11
 CXXFLAGS= -L ../../local/lib -I include/SDL2 -Wall
 LDFLAGS=-L/usr/local/depot/cuda-10.2/lib64/ -lcudart
 NVCC=nvcc
-NVCCFLAGS=-m64 -std=c++11 --gpu-architecture compute_61 -ccbin /usr/bin/gcc
+NVCCFLAGS=-m64 -std=c++11 --expt-relaxed-constexpr --gpu-architecture compute_61 -ccbin /usr/bin/gcc
 
 default: $(APP_NAME)
 

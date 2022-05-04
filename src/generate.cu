@@ -22,7 +22,7 @@
 #define MAX_ITERS 1000
 #define P_EXTRA 0.10
 
-#define BLOCK_DIM 256
+#define BLOCK_DIM 64
 
 // Get random point in a circle of a certain radius
 point_t getRandomPointInCircle(float radius) {
@@ -62,9 +62,9 @@ __device__ __inline__ int device_isOverlapping(rectangle_t *rooms, int i1, int i
 }
 
 // Check if a rectangle is overlapping any others
-__device__ __inline__ int device_anyOverlapping(rectangle_t *rooms, int numRooms) {
-    for (int i = 0; i < numRooms; i++) {
-        for (int j = 0; j < numRooms; j++) {
+__device__ __inline__ int device_anyOverlapping(rectangle_t *rooms, int rooms_start, int rooms_end) {
+    for (int i = rooms_start; i < rooms_end; i++) {
+        for (int j = rooms_start; j < rooms_end; j++) {
             if (device_isOverlapping(rooms, i, j))
                 return 1;
         }
@@ -83,25 +83,31 @@ __device__ __inline__ int device_oneOverlapping(rectangle_t *rooms, int numRooms
 
 
 // Kernel function for separating rooms
-__global__ void separate_rooms_kernel(rectangle_t *rooms, int numRooms, int *locks) {
+__global__ void separate_rooms_kernel(rectangle_t *rooms, int numRooms) {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     if (index >= numRooms)
         return;
-    while (device_anyOverlapping(rooms, numRooms)) {
-        locks[index] = 0;
+    int rooms_start = blockIdx.x * blockDim.x;  // inclusive
+    int rooms_end = min((blockIdx.x + 1) * blockDim.x, numRooms);  // exclusive
+
+     __shared__ int locks[BLOCK_DIM];
+    while (device_anyOverlapping(rooms, rooms_start, rooms_end)) {
+        locks[threadIdx.x] = 0;
         __syncthreads();
-        for (int i = 0; i < numRooms; i++) {
-            int j = (i + index) % numRooms;
+        for (int i = 0; i < (rooms_end - rooms_start); i++) {
+            int j = (i + index) % (rooms_end - rooms_start) + rooms_start;
             if (j == index)
                 continue;
             if (device_isOverlapping(rooms, index, j)) {
-                if (atomicCAS(&locks[index], 0, 1) != 0) {
+                /*
+                if (atomicCAS(&locks[threadIdx.x], 0, 1) != 0) {
                     continue;
                 }
-                if (atomicCAS(&locks[j], 0, 1) != 0) {
-                    locks[index] = 0;
+                if (atomicCAS(&locks[i], 0, 1) != 0) {
+                    locks[threadIdx.x] = 0;
                     continue;
                 }
+                */
                 float step_x = rooms[j].center.x - rooms[index].center.x;
                 float step_y = rooms[j].center.y - rooms[index].center.y;
                 float dist = sqrt(pow(step_x, 2) + pow(step_y, 2));
@@ -118,86 +124,88 @@ __global__ void separate_rooms_kernel(rectangle_t *rooms, int numRooms, int *loc
                 if (step_y == 0.0f)
                     step_y = 1.0f;
 
+                /*
                 rooms[index].center.x -= step_x;
                 rooms[index].center.y -= step_y;
                 rooms[j].center.x += step_x;
                 rooms[j].center.y += step_y;
-
-                /*
+                */
                 atomicAdd_system(&rooms[index].center.x, -1 * step_x);
                 atomicAdd_system(&rooms[index].center.y, -1 * step_y);
                 atomicAdd_system(&rooms[j].center.x, step_x);
                 atomicAdd_system(&rooms[j].center.y, step_y);
-                break;
-                */
             }
         }
         __syncthreads();
     }
 }
 
+// Kernel function for finding room block dimensions, probably should use reduction instead
+__global__ void find_block_dims_kernel(rectangle_t *rooms, int numRooms, rectangle_t *room_blocks) {
+    int index = threadIdx.x;  // only up to 256 threads, 1 block
+    float top = std::numeric_limits<float>::max();
+    float bottom = std::numeric_limits<float>::min();
+    float left = std::numeric_limits<float>::max();
+    float right = std::numeric_limits<float>::min();
+    for (int i = index * BLOCK_DIM; i < (index + 1) * BLOCK_DIM; i++) {
+        if (i < numRooms) {
+            top = min(rooms[i].center.y - rooms[i].height / 2, top);
+            bottom = max(rooms[i].center.y + rooms[i].height / 2, bottom);
+            left = min(rooms[i].center.x - rooms[i].width / 2, left);
+            right = max(rooms[i].center.x + rooms[i].width / 2, right);
+        }
+    }
+    room_blocks[index].center = {(top + bottom) / 2, (left + right) / 2};
+    room_blocks[index].width = (right - left);
+    room_blocks[index].height = (bottom - top);
+    room_blocks[index].status = 0;
+}
+
+// Kernel function for moving room blocks
+__global__ void move_room_blocks_kernel(rectangle_t *rooms, int numRooms, rectangle_t *room_blocks, rectangle_t *room_blocks_separated) {
+    int index = blockIdx.x * blockDim.x + threadIdx.x;  // only up to 256 threads, 1 block
+    float diff_x = round(room_blocks_separated[blockIdx.x].center.x - room_blocks[blockIdx.x].center.x);
+    float diff_y = round(room_blocks_separated[blockIdx.x].center.y - room_blocks[blockIdx.x].center.y);
+
+    if (index < numRooms) {
+        rooms[index].center.x += diff_x;
+        rooms[index].center.y += diff_y;
+    }
+}
+
 // Move the centers of the rooms away from each other
 // stackoverflow.com/questions/70806500/separation-steering-algorithm-for-separationg-set-of-rectangles/
 void separateRooms(dungeon_t *dungeon) {
+    if (dungeon->numRooms > (256 * 256)) {
+        printf("Error: too many rooms for current CUDA implementation\n");
+        return;
+    }
     rectangle_t *rooms = dungeon->rooms;
 
     rectangle_t *device_rooms;
-    int *device_locks;
     cudaMalloc(&device_rooms, sizeof(rectangle_t) * dungeon->numRooms);
-    cudaMalloc(&device_locks, sizeof(int) * dungeon->numRooms);
     cudaMemcpy(device_rooms, rooms, sizeof(rectangle_t) * dungeon->numRooms, cudaMemcpyHostToDevice);
 
     int numBlocks = (dungeon->numRooms + BLOCK_DIM - 1) / BLOCK_DIM;
 
-    /*
-    dim3 blockDim(BLOCK_DIM, 1);
-    dim3 gridDim(numBlocks);
-    */
-    separate_rooms_kernel<<<numBlocks, BLOCK_DIM>>>(device_rooms, dungeon->numRooms, device_locks);
+    separate_rooms_kernel<<<numBlocks, BLOCK_DIM>>>(device_rooms, dungeon->numRooms);
+
+    rectangle_t *device_room_blocks, *device_room_blocks_separated;
+
+    cudaMalloc(&device_room_blocks, sizeof(rectangle_t) * numBlocks);
+    cudaMalloc(&device_room_blocks_separated, sizeof(rectangle_t) * numBlocks);
+
+    find_block_dims_kernel<<<1, numBlocks>>>(device_rooms, dungeon->numRooms, device_room_blocks);
+    cudaMemcpy(device_room_blocks_separated, device_room_blocks, sizeof(rectangle_t) * numBlocks, cudaMemcpyDeviceToDevice);
+
+    separate_rooms_kernel<<<1, numBlocks>>>(device_room_blocks_separated, numBlocks);
+    move_room_blocks_kernel<<<numBlocks, BLOCK_DIM>>>(device_rooms, dungeon->numRooms, device_room_blocks, device_room_blocks_separated);
 
     cudaMemcpy(rooms, device_rooms, sizeof(rectangle_t) * dungeon->numRooms, cudaMemcpyDeviceToHost);
 
-    /*
-    int num_iters = 0;
-    while (anyOverlapping(rooms, dungeon->numRooms)) {
-        if (num_iters >= MAX_ITERS) {
-            printf("Did not converge in %d iterations\n", num_iters);
-            return;
-        }
-        for (int i = 0; i < dungeon->numRooms; i++) {
-            for (int j = 0; j < dungeon->numRooms; j++) {
-                if (i == j)
-                    continue;
-                if (isOverlapping(rooms, i, j)) {
-                    float step_x = rooms[j].center.x - rooms[i].center.x;
-                    float step_y = rooms[j].center.y - rooms[i].center.y;
-                    float dist = sqrt(pow(step_x, 2) + pow(step_y, 2));
-                    if (round(dist) == 0)
-                        dist = 0.001f;
-                    step_x /= dist;
-                    step_y /= dist;
-                    step_x = round(step_x);
-                    step_y = round(step_y);
-
-                    // I suppose its possible for the centers to be exactly equal.
-                    if (step_x == 0.0f)
-                        step_x = 1.0f;
-                    if (step_y == 0.0f)
-                        step_y = 1.0f;
-
-                    rooms[i].center.x -= step_x;
-                    rooms[i].center.y -= step_y;
-                    rooms[j].center.x += step_x;
-                    rooms[j].center.y += step_y;
-                }
-            }
-        }
-        num_iters += 1;
-    }
-    printf("Converged in %d iterations\n", num_iters);
-    */
     cudaFree(device_rooms);
-    cudaFree(device_locks);
+    cudaFree(device_room_blocks);
+    cudaFree(device_room_blocks_separated);
 }
 
 int isOverlapping(rectangle_t *rooms, int i1, int i2) {
