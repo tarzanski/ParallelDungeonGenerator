@@ -67,7 +67,7 @@ void separateRooms(dungeon_t *dungeon) {
             return;
         }
 #ifdef ISPC
-        separate_ispc((ispc::$anon3*)rooms, dungeon->numRooms);
+        separate_ispc_withtasks((ispc::$anon3*)rooms, dungeon->numRooms);
 #else
         for (int i = 0; i < dungeon->numRooms; i++) {
             for (int j = 0; j < dungeon->numRooms; j++) {

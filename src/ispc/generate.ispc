@@ -1,8 +1,4 @@
 
-#define BIT_OVERLAPPING 1 << 6
-
-#define BIT_NO_MOVE 1 << 7
-
 // struct typedefs are entirely uniform
 // one struct exists for the entire program
 typedef uniform struct {
@@ -95,4 +91,53 @@ export void separate_ispc(uniform rectangle_t rooms[], uniform int numRooms) {
             }
         }
     }
+}
+
+// ******************* Task Version *******************
+
+#define NUM_TASKS 10
+
+// task kernel, slightly different
+task void separate_ispc_task (uniform rectangle_t rooms[], uniform int numRooms) {
+    uniform int start_i = taskIndex * (numRooms / NUM_TASKS);
+    // end_i is exclusive
+    uniform int end_i = (taskIndex + 1) * (numRooms / NUM_TASKS);
+    if (taskIndex == NUM_TASKS - 1)
+        end_i = numRooms;
+    
+    for (uniform int i = start_i; i < end_i; i++) {
+        int prog_i = i + programIndex;
+        for (uniform int j = 0; j < numRooms; j += programCount) {
+            int prog_j = j + programIndex;
+            if (prog_i == prog_j)
+                continue;
+            
+            if (isOverlapping(rooms, prog_i, prog_j, numRooms)) {
+                float step_x = rooms[prog_j].center.x - rooms[prog_i].center.x;
+                float step_y = rooms[prog_j].center.y - rooms[prog_i].center.y;
+                float dist = sqrt((step_x * step_x) + (step_y * step_y));
+                if (round(dist) == 0)
+                    dist = 0.001f;
+                step_x /= dist;
+                step_y /= dist; 
+                step_x = round(step_x);
+                step_y = round(step_y);
+
+                if (step_x == 0.0f)
+                    step_x = 1.0f;
+                if (step_y == 0.0f)
+                    step_y = 1.0f;
+                rooms[prog_i].center.x -= step_x;
+                rooms[prog_i].center.y -= step_y;
+                rooms[prog_j].center.x += step_x;
+                rooms[prog_j].center.y += step_y;
+            }
+        }
+    }
+}
+
+// task version of ispc seperation
+export void separate_ispc_withtasks(uniform rectangle_t rooms[], uniform int numRooms) {
+    uniform int taskCount = NUM_TASKS;
+    launch[taskCount] separate_ispc_task(rooms, numRooms);
 }
