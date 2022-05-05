@@ -11,6 +11,23 @@
 #include "main.h"
 #include <SDL.h>
 
+// Rough "quality" metric for dungeons, area of bounding rectangle
+float get_solution_quality(dungeon_t *dungeon) {
+    rectangle_t *rooms = dungeon->rooms;
+    int numRooms = dungeon->numRooms;
+    float top = std::numeric_limits<float>::max();
+    float bottom = std::numeric_limits<float>::min();
+    float left = std::numeric_limits<float>::max();
+    float right = std::numeric_limits<float>::min();
+    for (int i = 0; i < numRooms; i++) {
+        top = std::min(top, rooms[i].center.y - rooms[i].height / 2);
+        bottom = std::max(bottom, rooms[i].center.y + rooms[i].height / 2);
+        left = std::min(left, rooms[i].center.x - rooms[i].width / 2);
+        right = std::max(right, rooms[i].center.y + rooms[i].width / 2);
+    }
+    return (bottom - top) * (right - left);
+}
+
 int main(int argc, char** argv) {
 #ifdef VSTUDIO // since can't set command arg with VSTUDIO
     int animate = 1;
@@ -73,6 +90,9 @@ int main(int argc, char** argv) {
     
     full_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
     printf("Full Generation Time: %lfs\n", full_time);
+
+    float quality = get_solution_quality(dungeon);
+    printf("Dungeon solution quality (lower is better: %f\n", quality);
 
     display disp(dungeon, animate, room_data, mst_dela);
 
