@@ -4,7 +4,7 @@
 // generate constants
 #define ISPC
 #define MAX_ITERS 5000
-#define VSTUDIO
+//#define VSTUDIO
 
 // one extra pixel so all lines can be drawn
 #define SCREEN_WIDTH 1280

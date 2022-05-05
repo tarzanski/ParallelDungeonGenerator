@@ -64,13 +64,9 @@ export void separate_ispc(uniform rectangle_t rooms[], uniform int numRooms) {
                 continue;
             
             if (isOverlapping(rooms, prog_i, prog_j, numRooms)) {
-                //print("FOUND OVERLAP rooms i:% j:%\n",prog_i,prog_j);
                 float step_x = rooms[prog_j].center.x - rooms[prog_i].center.x;
                 float step_y = rooms[prog_j].center.y - rooms[prog_i].center.y;
-                //print("step_x: %\n",step_x);
-                //print("step_y: %\n",step_y);
                 float dist = sqrt((step_x * step_x) + (step_y * step_y));
-                //print("DIST: %\n",dist);
                 if (round(dist) == 0)
                     dist = 0.001f;
                 step_x /= dist;
@@ -82,8 +78,6 @@ export void separate_ispc(uniform rectangle_t rooms[], uniform int numRooms) {
                     step_x = 1.0f;
                 if (step_y == 0.0f)
                     step_y = 1.0f;
-                //print("Moving room % by \n*** X:% \n*** Y:%\n",prog_i, 0-step_x, 0-step_y);
-                //print("Moving room % by \n*** X:% \n*** Y:%\n",prog_j, step_x, step_y);
                 rooms[prog_i].center.x -= step_x;
                 rooms[prog_i].center.y -= step_y;
                 rooms[prog_j].center.x += step_x;

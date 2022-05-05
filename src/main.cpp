@@ -98,48 +98,6 @@ int main(int argc, char** argv) {
 }
 
 /*****************************************************************************
- *                            Prerender functions 
- *****************************************************************************/
-
-// function to modify rooms when hallways touch the edge of a room
-/* function should essentially knock off the side wall of the room touching 
-   the hallway (could also be parallelized) */
-
-// int checkEdge(rectangle_t* room, hallway_t* hallway) {
-
-// }
-
-// void fixRoomEdges(dungeon_t* dungeon) {
-//     for (int roomInd = 0; roomInd < dungeon->numRooms; roomInd++) {
-//         rectangle_t* room = &dungeon->rooms[roomInd];
-//         if (!(room->status & BIT_INCLUDED))
-//             continue;
-//         // code looks familiar?
-//         float topLeftx = dungeon->rooms[roomNum].center.x - dungeon->rooms[roomNum].width/2;
-//         float topLefty = dungeon->rooms[roomNum].center.y - dungeon->rooms[roomNum].height/2;
-//         float botRightx = dungeon->rooms[roomNum].center.x + dungeon->rooms[roomNum].width/2;
-//         float botRighty = dungeon->rooms[roomNum].center.y + dungeon->rooms[roomNum].height/2;
-
-//         for (int hallInd = 0; hallInd < dungeon->numHallways; hallInd++) {
-//             hallway_t* hall = &dungeon->hallways[hallInd];
-
-//             // check both hallway segments if adjacent to current room
-//             if ()
-
-//         }
-//     }
-// }
-
-
-
-// function to deal with hallway intersections
-// create list of all hallway intersections 
-/* intersections should not exist when hallways are directly on top of eachother
-   and travelling in the same direction (this will be hard) */
-
-
-
-/*****************************************************************************
  *                            Class / MidRender Functions
  *****************************************************************************/
 
@@ -189,9 +147,6 @@ bool display::OnInit() {
 
     SDL_SetRenderDrawColor(renderer,0x00,0x00,0x00,SDL_ALPHA_OPAQUE);
     SDL_RenderPresent(renderer);
-
-    //gScreenSurface = SDL_GetWindowSurface(sdlwindow);
-
     return true;
 }
 
@@ -252,8 +207,6 @@ int display::OnExecute(dungeon_t *dungeon, double_edge_t *mst_dela) {
 
     loadAssets();
 
-    // genBackground();
-
     SDL_Event Event;
 
     int animate_sep_step = 0;
@@ -274,8 +227,6 @@ int display::OnExecute(dungeon_t *dungeon, double_edge_t *mst_dela) {
         }
 
         OnRender(dungeon, mst_dela);
-
-        OnLoop();
     }
 
     OnCleanup();
@@ -294,11 +245,9 @@ void display::OnEvent(SDL_Event* event) {
     if (event->type == SDL_MOUSEWHEEL) {
         if (event->wheel.y > 0) { // scroll up
             pixPerUnit += 1;
-            //printf("Scrolling up by: %d ppu: %d\n", event->wheel.y, pixPerUnit);
         }
         if (event->wheel.y < 0 && pixPerUnit != 1) { // scroll down
             pixPerUnit -= 1;
-            //printf("Scrolling down by: %d ppu: %d\n", event->wheel.y, pixPerUnit);
         }
     }
     if (event->type == SDL_KEYDOWN) {
@@ -339,12 +288,6 @@ void display::OnEvent(SDL_Event* event) {
     }
 }
 
-/*
- * Extra loop function that tutorial had
- */
-void display::OnLoop() {
-    //SDL_Delay(125);
-}
 
 /*
  * Generating the background image
@@ -362,7 +305,6 @@ void display::genBackground() {
         moverect.w = 1;
         moverect.h = SCREEN_HEIGHT;
 
-        //SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
         SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
     // left from origin
@@ -372,7 +314,6 @@ void display::genBackground() {
         moverect.w = 1;
         moverect.h = SCREEN_HEIGHT;
 
-        // SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
         SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
 
@@ -384,7 +325,6 @@ void display::genBackground() {
         moverect.w = SCREEN_WIDTH;
         moverect.h = 1;
 
-        // SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
         SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
 
@@ -395,7 +335,6 @@ void display::genBackground() {
         moverect.w = SCREEN_WIDTH;
         moverect.h = 1;
 
-        // SDL_BlitScaled(gGrey, NULL, gScreenSurface, &moverect);
         SDL_RenderCopy(renderer, gGrey, NULL, &moverect);
     }
 }
@@ -411,9 +350,6 @@ int getRoomCenter(int units, int ppu, int wh) {
 void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     // dungeon struct contents
     rectangle_t *rooms = dungeon->rooms;
-    //int roomNum = dungeon->numRooms;
-    //hallway_t *hallways = dungeon->hallways;
-    //int hallwayNum = dungeon->numHallways;
     int *mainRoomIndices = dungeon->mainRoomIndices;
     int mainRoomNum = dungeon->numMainRooms;
     
@@ -481,7 +417,6 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
         
     }
     SDL_RenderPresent(renderer);
-    //SDL_UpdateWindowSurface(sdlwindow);
 }
 
 void display::renderHallLine(int show_hallways) {
@@ -626,7 +561,6 @@ void display::renderRoom(rectangle_t room, SDL_Texture *roomTex, SDL_Texture *si
     roomRect.x += SCREEN_WIDTH / 2;
     roomRect.y += SCREEN_HEIGHT / 2;
 
-    //SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
     SDL_RenderCopy(renderer, roomTex, NULL, &roomRect);
 
     /********* add sides to room *********/
@@ -639,20 +573,17 @@ void display::renderRoom(rectangle_t room, SDL_Texture *roomTex, SDL_Texture *si
     sideRect.h = roomRect.h;
     sideRect.w = 1;
 
-    //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
     SDL_RenderCopy(renderer, sideTex, NULL, &sideRect);
 
     // top side
     sideRect.h = 1;
     sideRect.w = roomRect.w;
 
-    //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
     SDL_RenderCopy(renderer, sideTex, NULL, &sideRect);
 
     // bottom side
     sideRect.y = roomRect.y + roomRect.h - 1;
 
-    //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
     SDL_RenderCopy(renderer, sideTex, NULL, &sideRect);
 
     // right side
@@ -661,7 +592,6 @@ void display::renderRoom(rectangle_t room, SDL_Texture *roomTex, SDL_Texture *si
     sideRect.h = roomRect.h;
     sideRect.w = 1;
 
-    //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
     SDL_RenderCopy(renderer, sideTex, NULL, &sideRect);
 
     SDL_Rect dotRect;
@@ -673,7 +603,6 @@ void display::renderRoom(rectangle_t room, SDL_Texture *roomTex, SDL_Texture *si
     dotRect.x = (((int)(room.center.x) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
     dotRect.y = (((int)(room.center.y) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
 
-    //SDL_BlitScaled(gRed, NULL, gScreenSurface, &dotRect);
     SDL_RenderCopy(renderer, gRed, NULL, &dotRect);
 }
 
@@ -705,7 +634,6 @@ int display::animation(int animate_sep_step) {
         for (int curr_room = 0; curr_room < dungeon_data->numRooms; curr_room++) {
             renderRoom(iter_rooms[curr_room], gRoom, gSides);
         }
-        //printf("sep_iter: %d iter_delay: %d\n",animate_sep_step, iter_delay);
         // render the loading bar
         float prog = (float)animate_sep_step / (dungeon_data->numIters - 1);
         renderLoadBar(prog, gRed, renderer);

@@ -66,7 +66,6 @@ void separateRooms(dungeon_t *dungeon, rectangle_t **room_data, int animate) {
     while (anyOverlapping(rooms, dungeon->numRooms)) {
 #endif
         anyoverlap_time += std::chrono::duration_cast<dsec>(Clock::now() - start).count();
-        //printf("anyOverlapping Time: %lfs\n", anyoverlap_time);
         
         if (num_iters >= MAX_ITERS) {
             printf("Did not converge in %d iterations\n", num_iters);
@@ -322,9 +321,6 @@ double_edge_t* constructHallways(dungeon_t *dungeon) {
     // Find MST + a few extra edges
     int numAddedEdges = 0;
     edge_t *mst = findMinimumSpanningTree(allEdges, dungeon->numMainRooms, dungeon->numRooms, edge_index, P_EXTRA, &numAddedEdges);
-    // for (int i = 0; i < numAddedEdges; i++) {
-    //     printf("src: %d, dest: %d\n", mst[i].src, mst[i].dest);
-    // }
 
     // Construct hallway points
     hallway_t *hallways = (hallway_t *)calloc(numAddedEdges, sizeof(hallway_t));
@@ -368,8 +364,6 @@ double_edge_t* constructHallways(dungeon_t *dungeon) {
 
     free(pointList);
     free(triangleIndexList);
-    // free(allEdges);
-    // free(mst);
     double_edge_t *mst_dela = (double_edge_t*)malloc(sizeof(double_edge_t));
     mst_dela->dela = allEdges;
     mst_dela->mst = mst;
@@ -387,8 +381,6 @@ int checkBounds(float topLeftx, float topLefty, float botRightx, float botRighty
         float lowery = (start->y > end->y) ? end->y : start->y;
         if (start->x > topLeftx && start->x < botRightx && 
             ((topLefty > lowery && topLefty < highery) || (botRighty > lowery && botRighty < highery))) {
-            // printf("    TLx: %f, BRx %f, Hx: %f\n", topLeftx, botRightx, start->x);
-            // printf("found vertical ");
             return 1;
         }
     }
@@ -397,9 +389,6 @@ int checkBounds(float topLeftx, float topLefty, float botRightx, float botRighty
         float lowerx = (start->x > end->x) ? end->x : start->x;
         if (start->y > topLefty && start->y < botRighty && 
             ((topLeftx > lowerx && topLeftx < higherx) || (botRightx > lowerx && botRightx < higherx))) {
-            // printf("    TLy: %f, BRy %f, Hy: %f\n", topLefty, botRighty, start->y);
-            // printf("    TLx: %f, BRx %f, Hxs: %f, Hxe: %f\n", topLeftx, botRightx, start->x, end->x);
-            // printf("found horizontal ");
             return 1;
         }
     }
@@ -409,7 +398,6 @@ int checkBounds(float topLeftx, float topLefty, float botRightx, float botRighty
 // function to find set of non-main rooms that overlap with hallways.
 // MainRoomIndices array is ordered, can use that to avoid O(n) lookup
 void getIncludedRooms(dungeon_t* dungeon) {
-    //printf("***************************************************\n");
     
     int mainRoomIndex = 0;
     for (int roomNum = 0; roomNum < dungeon->numRooms; roomNum++) {
@@ -422,7 +410,6 @@ void getIncludedRooms(dungeon_t* dungeon) {
             dungeon->rooms[roomNum].status += BIT_MAINROOM;
             continue;
         }
-        //printf("checking halls for room %d\n", roomNum);
 
         float topLeftx = dungeon->rooms[roomNum].center.x - dungeon->rooms[roomNum].width/2;
         float topLefty = dungeon->rooms[roomNum].center.y - dungeon->rooms[roomNum].height/2;
@@ -441,7 +428,6 @@ void getIncludedRooms(dungeon_t* dungeon) {
             // start --> middle
             if (checkBounds(topLeftx, topLefty, botRightx, botRighty, &hall->start, &hall->middle)) {
                 dungeon->rooms[roomNum].status += BIT_INCLUDED;
-                //printf("%d\n",hallwayNum);
                 break;
             }
 
@@ -449,14 +435,9 @@ void getIncludedRooms(dungeon_t* dungeon) {
                 // included could already be set
                 if (!(dungeon->rooms[roomNum].status & BIT_INCLUDED))
                     dungeon->rooms[roomNum].status += BIT_INCLUDED;
-                //printf("%d\n",hallwayNum);
                 break;
             }
         }
-
-        // if (dungeon->rooms[roomNum].include == 0)
-        //     printf("no intersections found for %d\n", roomNum);
         
     }
-    // printf("***************************************************\n");
 }
