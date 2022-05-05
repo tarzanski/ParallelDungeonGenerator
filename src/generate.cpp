@@ -11,12 +11,13 @@
 #include <random>
 #include <limits>
 #include <algorithm>
+#include <omp.h>
 
 #include "generate.h"
 #include "Clarkson-Delaunay.h"
 #include "main.h"
 
-#define MAX_ITERS 1000
+#define MAX_ITERS 10000
 #define P_EXTRA 0.10
 
 // Get random point in a circle of a certain radius
@@ -46,6 +47,7 @@ void separateRooms(dungeon_t *dungeon) {
             printf("Did not converge in %d iterations\n", num_iters);
             return;
         }
+        #pragma omp parallel for
         for (int i = 0; i < dungeon->numRooms; i++) {
             for (int j = 0; j < dungeon->numRooms; j++) {
                 if (i == j)
@@ -79,6 +81,7 @@ void separateRooms(dungeon_t *dungeon) {
     printf("Converged in %d iterations\n", num_iters);
 }
 
+// Check if two rectangles are overlapping
 int isOverlapping(rectangle_t *rooms, int i1, int i2) {
     if (i1 == i2)
         return 0;
@@ -109,10 +112,12 @@ int anyOverlapping(rectangle_t *rooms, int numRooms) {
     return 0;
 }
 
+// "Less than" function for sorting edges
 bool edgeLT(edge_t a, edge_t b) {
     return a.dist < b.dist;
 }
 
+// Union find function
 int findSubset(int a, int *parentMap) {
     if (parentMap[a] == -1)
         return a;
@@ -271,9 +276,9 @@ double_edge_t* constructHallways(dungeon_t *dungeon) {
     // Find MST + a few extra edges
     int numAddedEdges = 0;
     edge_t *mst = findMinimumSpanningTree(allEdges, dungeon->numMainRooms, dungeon->numRooms, edge_index, P_EXTRA, &numAddedEdges);
-    for (int i = 0; i < numAddedEdges; i++) {
-        printf("src: %d, dest: %d\n", mst[i].src, mst[i].dest);
-    }
+    // for (int i = 0; i < numAddedEdges; i++) {
+    //     printf("src: %d, dest: %d\n", mst[i].src, mst[i].dest);
+    // }
 
     // Construct hallway points
     hallway_t *hallways = (hallway_t *)calloc(numAddedEdges, sizeof(hallway_t));

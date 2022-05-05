@@ -4,23 +4,63 @@
 #include <cstdlib>
 #include <cstdio>
 #include <random>
+#include <chrono>
+#include <omp.h>
 
 #include "generate.h"
 #include "main.h"
 #include <SDL.h>
 
+// #define VSTUDIO
+
+static int _argc;
+static char **_argv;
+
+// Get number of threads
+int get_option_int(const char *option_name, int default_value) {
+    for (int i = _argc - 2; i >= 0; i -= 2)
+        if (strcmp(_argv[i], option_name) == 0)
+            return atoi(_argv[i + 1]);
+    return default_value;
+}
+
+// Rough "quality" metric for dungeons, area of bounding rectangle
+float get_solution_quality(dungeon_t *dungeon) {
+    rectangle_t *rooms = dungeon->rooms;
+    int numRooms = dungeon->numRooms;
+    float top = std::numeric_limits<float>::max();
+    float bottom = std::numeric_limits<float>::min();
+    float left = std::numeric_limits<float>::max();
+    float right = std::numeric_limits<float>::min();
+    for (int i = 0; i < numRooms; i++) {
+        top = std::min(top, rooms[i].center.y - rooms[i].height / 2);
+        bottom = std::max(bottom, rooms[i].center.y + rooms[i].height / 2);
+        left = std::min(left, rooms[i].center.x - rooms[i].width / 2);
+        right = std::max(right, rooms[i].center.y + rooms[i].width / 2);
+    }
+    return (bottom - top) * (right - left);
+}
 
 int main(int argc, char** argv) {
+    _argc = argc - 1;
+    _argv = argv + 1;
+    int num_of_threads = get_option_int("-n", 1);
+    omp_set_num_threads(num_of_threads);
+    printf("Number of threads: %d\n", num_of_threads);
 
-    // implement argument parsing
-
-    // initialize SDL interface if using a GUI
+    // getting room generation number
+    int roomNum = 500;
+    printf("Enter Number of Rooms: ");
+    scanf("%d", &roomNum);
+    printf("Generating %d Rooms\n", roomNum);
 
     // set up any timing before calling algorithm functions
+    typedef std::chrono::high_resolution_clock Clock;
+    typedef std::chrono::duration<double> dsec;
 
-    // parse arguments if using a gui
-
-    int roomNum = 1000;
+    auto init_start = Clock::now();
+    double generate_time = 0;
+    double time_difference = 0;
 
     dungeon_t d;
     dungeon_t *dungeon = &d;
@@ -30,9 +70,29 @@ int main(int argc, char** argv) {
     // insert timing functions here
 
     generate(dungeon, roomNum, 25);
+    generate_time = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
+    printf("Initial Room Generation Time: %lfs\n", generate_time);
+
     separateRooms(dungeon);
+    time_difference = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count() - generate_time;
+    generate_time += time_difference;
+    printf("Room Separation Time: %lfs\n", time_difference);
+
     mst_dela = constructHallways(dungeon);
+    time_difference = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count() - generate_time;
+    generate_time += time_difference;
+    printf("MST and Delaunay Time: %lfs\n", time_difference);
+
     getIncludedRooms(dungeon);
+    time_difference = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count() - generate_time;
+    generate_time += time_difference;
+    printf("Included Rooms Time: %lfs\n", time_difference);
+
+    generate_time = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
+    printf("Total Dungeon Generation Time: %lfs\n", generate_time);
+
+    float quality = get_solution_quality(dungeon);
+    printf("Dungeon solution quality (lower is better: %f\n", quality);
 
     // printf("******** MAIN ROOM IDXS ********\n");
     // for (int i = 0; i < dungeon->numMainRooms; i++) {
@@ -173,6 +233,16 @@ SDL_Texture* loadTexture(std::string path, SDL_Renderer* renderer) {
 }
 
 void display::loadAssets() {
+#ifdef VSTUDIO
+    gRoom = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\room_proto_2.bmp", renderer);
+
+    gSides = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\turq_square.bmp", renderer);
+
+    gGrey = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\grey_square.bmp", renderer);
+
+    gRed = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\red_square.bmp", renderer);
+#endif
+#ifndef VSTUDIO
     gRoom = loadTexture("assets/room_proto_2.bmp", renderer);
 
     gSides = loadTexture("assets/turq_square.bmp", renderer);
@@ -180,6 +250,7 @@ void display::loadAssets() {
     gGrey = loadTexture("assets/grey_square.bmp", renderer);
 
     gRed = loadTexture("assets/red_square.bmp", renderer);
+#endif
 }
 
 /*
@@ -231,13 +302,13 @@ void display::OnEvent(SDL_Event* event) {
     if (event->type == SDL_KEYDOWN) {
         const uint8_t* currentKeyStates = SDL_GetKeyboardState(NULL);
         if (currentKeyStates[SDL_SCANCODE_UP])
-            y_offset += 1;
+            y_offset += std::max(1, 10 / pixPerUnit);
         if (currentKeyStates[SDL_SCANCODE_DOWN])
-            y_offset -= 1;
+            y_offset -= std::max(1, 10 / pixPerUnit);
         if (currentKeyStates[SDL_SCANCODE_LEFT])
-            x_offset += 1;
+            x_offset += std::max(1, 10 / pixPerUnit);
         if (currentKeyStates[SDL_SCANCODE_RIGHT])
-            x_offset -= 1;
+            x_offset -= std::max(1, 10 / pixPerUnit);
         if (currentKeyStates[SDL_SCANCODE_SPACE])
             room_view = (room_view + 1) % 3;
         if (currentKeyStates[SDL_SCANCODE_1] && currRoomNumber != 0)
