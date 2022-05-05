@@ -13,6 +13,23 @@
 
 // #define VSTUDIO
 
+// Rough "quality" metric for dungeons, area of bounding rectangle
+float get_solution_quality(dungeon_t *dungeon) {
+    rectangle_t *rooms = dungeon->rooms;
+    int numRooms = dungeon->numRooms;
+    float top = std::numeric_limits<float>::max();
+    float bottom = std::numeric_limits<float>::min();
+    float left = std::numeric_limits<float>::max();
+    float right = std::numeric_limits<float>::min();
+    for (int i = 0; i < numRooms; i++) {
+        top = std::min(top, rooms[i].center.y - rooms[i].height / 2);
+        bottom = std::max(bottom, rooms[i].center.y + rooms[i].height / 2);
+        left = std::min(left, rooms[i].center.x - rooms[i].width / 2);
+        right = std::max(right, rooms[i].center.y + rooms[i].width / 2);
+    }
+    return (bottom - top) * (right - left);
+}
+
 int main(int argc, char** argv) {
 
     // getting room generation number
@@ -57,6 +74,9 @@ int main(int argc, char** argv) {
 
     generate_time = std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
     printf("Total Dungeon Generation Time: %lfs\n", generate_time);
+
+    float quality = get_solution_quality(dungeon);
+    printf("Dungeon solution quality (lower is better: %f\n", quality);
 
     // printf("******** MAIN ROOM IDXS ********\n");
     // for (int i = 0; i < dungeon->numMainRooms; i++) {

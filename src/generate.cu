@@ -98,11 +98,11 @@ __global__ void separate_rooms_kernel(rectangle_t *rooms, int numRooms, rectangl
             atomicAdd_system(&newRooms[j].center.x, step_x);
             atomicAdd_system(&newRooms[j].center.y, step_y);
             */
-
         }
     }
 }
 
+// Kernel for determining if any rooms are overlapping, using reduction.
 __global__ void any_overlapping_kernel(rectangle_t *rooms, int numRooms, int *overlap) {
     const int tid = threadIdx.x;
     const int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -144,6 +144,7 @@ void separateRooms(dungeon_t *dungeon) {
     rectangle_t *rooms = dungeon->rooms;
     int numBlocks = (dungeon->numRooms + BLOCK_DIM - 1) / BLOCK_DIM;
     int overlap = 1;
+    int num_iters = 0;
 
     rectangle_t *device_rooms, *device_newRooms;
     int *device_overlap;
@@ -154,22 +155,24 @@ void separateRooms(dungeon_t *dungeon) {
     cudaMemcpy(device_newRooms, device_rooms, sizeof(rectangle_t) * dungeon->numRooms, cudaMemcpyDeviceToDevice);
     cudaMemcpy(device_overlap, &overlap, sizeof(int), cudaMemcpyHostToDevice);
 
-    while (overlap) {
+    while (overlap && num_iters < MAX_ITERS) {
         overlap = 0;
         cudaMemcpy(device_overlap, &overlap, sizeof(int), cudaMemcpyHostToDevice);
         separate_rooms_kernel<<<numBlocks, BLOCK_DIM>>>(device_rooms, dungeon->numRooms, device_newRooms);
         cudaMemcpy(device_rooms, device_newRooms, sizeof(rectangle_t) * dungeon->numRooms, cudaMemcpyDeviceToDevice);
         any_overlapping_kernel<<<numBlocks, BLOCK_DIM>>>(device_rooms, dungeon->numRooms, device_overlap);
         cudaMemcpy(&overlap, device_overlap, sizeof(int), cudaMemcpyDeviceToHost);
+        num_iters += 1;
     }
 
     cudaMemcpy(rooms, device_rooms, sizeof(rectangle_t) * dungeon->numRooms, cudaMemcpyDeviceToHost);
-
+    printf("Finished in %d iterations\n", num_iters);
     cudaFree(device_rooms);
     cudaFree(device_newRooms);
     cudaFree(device_overlap);
 }
 
+// Sequential check for whether two rectangles are overlapping
 int isOverlapping(rectangle_t *rooms, int i1, int i2) {
     if (i1 == i2)
         return 0;
@@ -200,10 +203,12 @@ int anyOverlapping(rectangle_t *rooms, int numRooms) {
     return 0;
 }
 
+// "Less than" function for sorting edges
 bool edgeLT(edge_t a, edge_t b) {
     return a.dist < b.dist;
 }
 
+// Union find function
 int findSubset(int a, int *parentMap) {
     if (parentMap[a] == -1)
         return a;
