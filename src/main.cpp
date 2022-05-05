@@ -5,21 +5,28 @@
 #include <cstdio>
 #include <random>
 #include <chrono>
-#include <algorithm>
+#include <string.h>
 
 #include "generate.h"
 #include "main.h"
 #include <SDL.h>
 
 int main(int argc, char** argv) {
-
+#ifdef VSTUDIO // since can't set command arg with VSTUDIO
+    int animate = 1;
+    printf("Running with ANIMATE flag (-a), computation time WILL be slower.\n");
+    rectangle_t **room_data = (rectangle_t **)malloc(sizeof(rectangle_t *) * MAX_ITERS);
+#else
     int animate = 0;
     rectangle_t **room_data = NULL;
+#endif
     // checking for -a animate flag
-    if (std::find(argv, argv + argc, "-a")) {
-        printf("Running with ANIMATE flag (-a), computation time WILL be slower.\n");
-        animate = 1;
-        room_data = (rectangle_t **)malloc(sizeof(rectangle_t *) * MAX_ITERS);
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i],"-a") == 0) {
+            printf("Running with ANIMATE flag (-a), computation time WILL be slower.\n");
+            animate = 1;
+            room_data = (rectangle_t **)malloc(sizeof(rectangle_t *) * MAX_ITERS);
+        }
     }
 
     // getting room generation number
@@ -67,18 +74,7 @@ int main(int argc, char** argv) {
     full_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
     printf("Full Generation Time: %lfs\n", full_time);
 
-    // printf("******** MAIN ROOM IDXS ********\n");
-    // for (int i = 0; i < dungeon->numMainRooms; i++) {
-    //     printf("%d\n", dungeon->mainRoomIndices[i]);
-    // }
-
-    // printf("******** ALL ROOMS ********\n");
-    // for (int i = 0; i < dungeon->numRooms; i++) {
-    //     printf("Idx: %d X:%f Y:%f\n", i, dungeon->rooms[i].center.x, dungeon->rooms[i].center.y);
-    // }
-
-
-    display disp(dungeon, animate, room_data);
+    display disp(dungeon, animate, room_data, mst_dela);
 
     printf("*****STARTING GUI*****\n");
 
@@ -86,13 +82,19 @@ int main(int argc, char** argv) {
 
     printf("***** CLOSING GUI*****\n");
 
-    
+    if (animate == 1) {
+        for (int i = 0; i < dungeon->numIters; i++) {
+            free(room_data[i]);
+        }
+        free(room_data);
+    }
+    free(mst_dela->dela);
+    free(mst_dela->mst);
     free(dungeon->rooms);
     free(dungeon->mainRoomIndices);
     free(dungeon->hallways);
 
     return ecode;
-    //return 0;
 }
 
 /*****************************************************************************
@@ -144,19 +146,22 @@ int main(int argc, char** argv) {
 /*
  * Class constructor
  */
-display::display(dungeon_t *dungeon, int animate_set, rectangle_t **room_hist) {
+display::display(dungeon_t *dungeon, int animate_set, rectangle_t **room_hist,
+                 double_edge_t *mst_dela) {
     running = true;
     currRoomNumber = dungeon->numRooms;
     room_data = room_hist;
+    dungeon_data = dungeon;
+    mst_dela_data = mst_dela;
     pixPerUnit = 5;
     x_offset = 0;
     y_offset = 0;
     room_view = 0;
     show_hallways = 0;
-    dungeon_data = dungeon;
     animate = animate_set;
     show_tree = 0;
     animate_on = 0;
+    hall_type = 0;
 }
 
 /*
@@ -211,30 +216,29 @@ SDL_Texture* loadTexture(std::string path, SDL_Renderer* renderer) {
 void display::loadAssets() {
 #ifdef VSTUDIO
     gRoom = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\room_proto_2.bmp", renderer);
-
     gSides = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\turq_square.bmp", renderer);
-
     gGrey = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\grey_square.bmp", renderer);
-
     gRed = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\red_square.bmp", renderer);
+    gMain = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\main_proto_1.bmp", renderer);
+    gHall = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\hall_proto_1.bmp", renderer);
+    gBlack = loadTexture("C:\\Users\\olekk\\OneDrive\\Desktop\\S2022\\15-418\\ParallelDungeonGenerator\\src\\assets\\black_square.bmp", renderer);
 #else
 #ifdef ISPC
-
     gRoom = loadTexture("../assets/room_proto_2.bmp", renderer);
-
     gSides = loadTexture("../assets/turq_square.bmp", renderer);
-
     gGrey = loadTexture("../assets/grey_square.bmp", renderer);
-
     gRed = loadTexture("../assets/red_square.bmp", renderer);
+    gMain = loadTexture("../assets/main_proto_1.bmp", renderer);
+    gHall = loadTexture("../assets/hall_proto_1.bmp", renderer);
+    gBlack = loadTexture("../assets/black_square.bmp", renderer);
 #else
     gRoom = loadTexture("assets/room_proto_2.bmp", renderer);
-
     gSides = loadTexture("assets/turq_square.bmp", renderer);
-
     gGrey = loadTexture("assets/grey_square.bmp", renderer);
-
     gRed = loadTexture("assets/red_square.bmp", renderer);
+    gMain = loadTexture("assets/main_proto_1.bmp", renderer);
+    gHall = loadTexture("assets/hall_proto_1.bmp", renderer);
+    gBlack = loadTexture("assets/black_square.bmp", renderer);
 #endif
 #endif
 }
@@ -329,6 +333,9 @@ void display::OnEvent(SDL_Event* event) {
             if (animate)
                 animate_on = 1;
         }
+        if (currentKeyStates[SDL_SCANCODE_H]) {
+            hall_type = (hall_type + 1) % 2;
+        }
     }
 }
 
@@ -405,7 +412,7 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     // dungeon struct contents
     rectangle_t *rooms = dungeon->rooms;
     //int roomNum = dungeon->numRooms;
-    hallway_t *hallways = dungeon->hallways;
+    //hallway_t *hallways = dungeon->hallways;
     //int hallwayNum = dungeon->numHallways;
     int *mainRoomIndices = dungeon->mainRoomIndices;
     int mainRoomNum = dungeon->numMainRooms;
@@ -419,7 +426,9 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     // clearing old frame
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear(renderer);
-    //SDL_FillRect(gScreenSurface, NULL, 0x000000);
+
+    if (hall_type == 0)
+        renderHallFull(show_hallways);
 
     // first generate background grid
     genBackground();
@@ -431,55 +440,23 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
     for (int room_inc = 0; room_inc < roomMax; room_inc++) {
 
         if (room_view == 1)
-            renderRoom(rooms[mainRoomIndices[room_inc]]);
+            renderRoom(rooms[mainRoomIndices[room_inc]], gMain, gBlack);
         else if (room_view == 2) {
-            if (rooms[room_inc].status && BIT_INCLUDED)
-                renderRoom(rooms[room_inc]);
+            if (rooms[room_inc].status & BIT_MAINROOM)
+                renderRoom(rooms[room_inc], gMain, gBlack);
+            else if (rooms[room_inc].status & BIT_INCLUDED)
+                renderRoom(rooms[room_inc], gRoom, gSides);
         }
-        else
-            renderRoom(rooms[room_inc]);
-
+        else {
+            if (rooms[room_inc].status & BIT_MAINROOM)
+                renderRoom(rooms[room_inc], gMain, gBlack);
+            else
+                renderRoom(rooms[room_inc], gRoom, gSides);
+        }
     }
 
-    
-    SDL_Rect hallrect;
-    for (int i = 0; i < show_hallways; i++) {
-        // render line for start-->middle
-        int hallsx = (int)hallways[i].start.x;
-        int hallsy = (int)hallways[i].start.y;
-
-        int hallmx = (int)hallways[i].middle.x;
-        int hallmy = (int)hallways[i].middle.y;
-
-
-        hallrect.x = ((std::min(hallsx, hallmx) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
-        hallrect.y = ((std::min(hallsy, hallmy) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
-        hallrect.w = std::max(std::abs(hallmx - hallsx) * pixPerUnit, 1);
-        hallrect.h = std::max(std::abs(hallmy - hallsy) * pixPerUnit, 1);
-
-        if (hallrect.w == 1 && hallrect.h == 1) {
-            hallrect.w = 0;
-        }
-
-        //SDL_BlitScaled(gRed, NULL, gScreenSurface, &hallrect);
-        SDL_RenderCopy(renderer, gRed, NULL, &hallrect);
-
-        // render line for middle-->end
-        int hallex = (int)hallways[i].end.x;
-        int halley = (int)hallways[i].end.y;
-
-        hallrect.x = ((std::min(hallmx, hallex) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
-        hallrect.y = ((std::min(hallmy, halley) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
-        hallrect.w = std::max(std::abs(hallex - hallmx) * pixPerUnit, 1);
-        hallrect.h = std::max(std::abs(halley - hallmy) * pixPerUnit, 1);
-
-        if (hallrect.w == 1 && hallrect.h == 1) {
-            hallrect.w = 0;
-        }
-
-        //SDL_BlitScaled(gRed, NULL, gScreenSurface, &hallrect);
-        SDL_RenderCopy(renderer, gRed, NULL, &hallrect);
-    }
+    if (hall_type == 1)
+        renderHallLine(show_hallways);
 
     SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
 
@@ -500,18 +477,132 @@ void display::OnRender(dungeon_t *dungeon, double_edge_t *mst_dela) {
             roomsrc = rooms[dela[tree_inc].src];
             roomdest = rooms[dela[tree_inc].dest];
         }
-        int src_x = ((roomsrc.center.x + x_offset) * pixPerUnit) + SCREEN_WIDTH / 2;
-        int src_y = ((roomsrc.center.y + y_offset) * pixPerUnit) + SCREEN_HEIGHT / 2;
-        int dest_x = ((roomdest.center.x + x_offset) * pixPerUnit) + SCREEN_WIDTH / 2;
-        int dest_y = ((roomdest.center.y + y_offset) * pixPerUnit) + SCREEN_HEIGHT / 2;
-
-        SDL_RenderDrawLine(renderer, src_x, src_y, dest_x, dest_y);
+        renderEdge(roomsrc, roomdest);
+        
     }
     SDL_RenderPresent(renderer);
     //SDL_UpdateWindowSurface(sdlwindow);
 }
 
-void display::renderRoom(rectangle_t room) {
+void display::renderHallLine(int show_hallways) {
+    SDL_Rect hallrect;
+    for (int i = 0; i < show_hallways; i++) {
+        // render line for start-->middle
+        int hallsx = (int)dungeon_data->hallways[i].start.x;
+        int hallsy = (int)dungeon_data->hallways[i].start.y;
+
+        int hallmx = (int)dungeon_data->hallways[i].middle.x;
+        int hallmy = (int)dungeon_data->hallways[i].middle.y;
+
+
+        hallrect.x = ((std::min(hallsx, hallmx) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
+        hallrect.y = ((std::min(hallsy, hallmy) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
+        hallrect.w = std::max(std::abs(hallmx - hallsx) * pixPerUnit, 1);
+        hallrect.h = std::max(std::abs(hallmy - hallsy) * pixPerUnit, 1);
+
+        if (hallrect.w == 1 && hallrect.h == 1) {
+            hallrect.w = 0;
+        }
+
+        SDL_RenderCopy(renderer, gRed, NULL, &hallrect);
+
+        // render line for middle-->end
+        int hallex = (int)dungeon_data->hallways[i].end.x;
+        int halley = (int)dungeon_data->hallways[i].end.y;
+
+        hallrect.x = ((std::min(hallmx, hallex) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
+        hallrect.y = ((std::min(hallmy, halley) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
+        hallrect.w = std::max(std::abs(hallex - hallmx) * pixPerUnit, 1);
+        hallrect.h = std::max(std::abs(halley - hallmy) * pixPerUnit, 1);
+
+        if (hallrect.w == 1 && hallrect.h == 1) {
+            hallrect.w = 0;
+        }
+
+        SDL_RenderCopy(renderer, gRed, NULL, &hallrect);
+    }
+}
+
+void display::renderHallFull(int show_hallways) {
+    SDL_Rect hallrect;
+    for (int i = 0; i < show_hallways; i++) {
+        // render line for start-->middle
+        int hallsx = (int)dungeon_data->hallways[i].start.x;
+        int hallsy = (int)dungeon_data->hallways[i].start.y;
+
+        int hallmx = (int)dungeon_data->hallways[i].middle.x;
+        int hallmy = (int)dungeon_data->hallways[i].middle.y;
+
+
+        hallrect.x = ((std::min(hallsx, hallmx) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
+        hallrect.y = ((std::min(hallsy, hallmy) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
+        hallrect.w = std::max(std::abs(hallmx - hallsx) * pixPerUnit, pixPerUnit);
+        hallrect.h = std::max(std::abs(hallmy - hallsy) * pixPerUnit, pixPerUnit);
+
+        if (hallrect.w == pixPerUnit && hallrect.h == pixPerUnit) {
+            hallrect.w = 0;
+        }
+
+        SDL_RenderCopy(renderer, gHall, NULL, &hallrect);
+
+        // render line for middle-->end
+        int hallex = (int)dungeon_data->hallways[i].end.x;
+        int halley = (int)dungeon_data->hallways[i].end.y;
+
+        hallrect.x = ((std::min(hallmx, hallex) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
+        hallrect.y = ((std::min(hallmy, halley) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
+        hallrect.w = std::max(std::abs(hallex - hallmx) * pixPerUnit, pixPerUnit);
+        hallrect.h = std::max(std::abs(halley - hallmy) * pixPerUnit, pixPerUnit);
+
+        if (hallrect.w == pixPerUnit && hallrect.h == pixPerUnit) {
+            hallrect.w = 0;
+        }
+
+        SDL_RenderCopy(renderer, gHall, NULL, &hallrect);
+
+        // full hallway bottom right intersection extension logic
+
+        // start x < mid x, start y == mid y, mid y > end y
+        // end x < mid x, end y == mid y, mid y > start y
+        if ((hallsx < hallmx) && (hallsy == hallmy) && (hallmy > halley)) {
+            // re render start to mid with + 1
+            hallrect.x = ((std::min(hallsx, hallmx) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
+            hallrect.y = ((std::min(hallsy, hallmy) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
+            hallrect.w = std::max(std::abs(hallmx - hallsx) * pixPerUnit, pixPerUnit) + pixPerUnit;
+            hallrect.h = std::max(std::abs(hallmy - hallsy) * pixPerUnit, pixPerUnit);
+
+            if (hallrect.w == pixPerUnit && hallrect.h == pixPerUnit) {
+                hallrect.w = 0;
+            }
+
+            SDL_RenderCopy(renderer, gHall, NULL, &hallrect);
+        }
+        if ((hallex < hallmx) && (halley == hallmy) && (hallmy > hallsy)) {
+            // re render end to mid with + 1
+            hallrect.x = ((std::min(hallmx, hallex) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
+            hallrect.y = ((std::min(hallmy, halley) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
+            hallrect.w = std::max(std::abs(hallex - hallmx) * pixPerUnit, pixPerUnit) + pixPerUnit;
+            hallrect.h = std::max(std::abs(halley - hallmy) * pixPerUnit, pixPerUnit);
+
+            if (hallrect.w == pixPerUnit && hallrect.h == pixPerUnit) {
+                hallrect.w = 0;
+            }
+
+            SDL_RenderCopy(renderer, gHall, NULL, &hallrect);
+        }
+    }
+}
+
+void display::renderEdge(rectangle_t roomsrc, rectangle_t roomdest) {
+    int src_x = ((roomsrc.center.x + x_offset) * pixPerUnit) + SCREEN_WIDTH / 2;
+    int src_y = ((roomsrc.center.y + y_offset) * pixPerUnit) + SCREEN_HEIGHT / 2;
+    int dest_x = ((roomdest.center.x + x_offset) * pixPerUnit) + SCREEN_WIDTH / 2;
+    int dest_y = ((roomdest.center.y + y_offset) * pixPerUnit) + SCREEN_HEIGHT / 2;
+
+    SDL_RenderDrawLine(renderer, src_x, src_y, dest_x, dest_y);
+}
+
+void display::renderRoom(rectangle_t room, SDL_Texture *roomTex, SDL_Texture *sideTex) {
     SDL_Rect roomRect;
 
     float roomW = room.width;
@@ -536,7 +627,7 @@ void display::renderRoom(rectangle_t room) {
     roomRect.y += SCREEN_HEIGHT / 2;
 
     //SDL_BlitScaled(gRoom, NULL, gScreenSurface, &roomRect);
-    SDL_RenderCopy(renderer, gRoom, NULL, &roomRect);
+    SDL_RenderCopy(renderer, roomTex, NULL, &roomRect);
 
     /********* add sides to room *********/
 
@@ -549,20 +640,20 @@ void display::renderRoom(rectangle_t room) {
     sideRect.w = 1;
 
     //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
-    SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
+    SDL_RenderCopy(renderer, sideTex, NULL, &sideRect);
 
     // top side
     sideRect.h = 1;
     sideRect.w = roomRect.w;
 
     //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
-    SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
+    SDL_RenderCopy(renderer, sideTex, NULL, &sideRect);
 
     // bottom side
     sideRect.y = roomRect.y + roomRect.h - 1;
 
     //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
-    SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
+    SDL_RenderCopy(renderer, sideTex, NULL, &sideRect);
 
     // right side
     sideRect.x = roomRect.x + roomRect.w - 1;
@@ -571,48 +662,146 @@ void display::renderRoom(rectangle_t room) {
     sideRect.w = 1;
 
     //SDL_BlitScaled(gSides, NULL, gScreenSurface, &sideRect);
-    SDL_RenderCopy(renderer, gSides, NULL, &sideRect);
+    SDL_RenderCopy(renderer, sideTex, NULL, &sideRect);
 
     SDL_Rect dotRect;
 
     // drawing red dot for center of room
-    dotRect.h = 3;
-    dotRect.w = 3;
+    dotRect.h = 2;
+    dotRect.w = 2;
 
-    dotRect.x = (((int)(room.center.x) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2) - dotRect.w/2;
-    dotRect.y = (((int)(room.center.y) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2) - dotRect.h/2;
+    dotRect.x = (((int)(room.center.x) + x_offset) * pixPerUnit) + (SCREEN_WIDTH / 2);
+    dotRect.y = (((int)(room.center.y) + y_offset) * pixPerUnit) + (SCREEN_HEIGHT / 2);
 
     //SDL_BlitScaled(gRed, NULL, gScreenSurface, &dotRect);
     SDL_RenderCopy(renderer, gRed, NULL, &dotRect);
+}
+
+void renderLoadBar(float prog, SDL_Texture *tex, SDL_Renderer *renderer) {
+    int bar_end = (int)(prog * SCREEN_WIDTH);
+    SDL_Rect barRect;
+    barRect.x = 0;
+    barRect.y = 0;
+    barRect.h = 5;
+    barRect.w = bar_end;
+    SDL_RenderCopy(renderer, tex, NULL, &barRect);
 }
 
 /*
  * Animation function
  */
 int display::animation(int animate_sep_step) {
-
-    // SET PIX_PER_UNIT BASED ON ROOMNUM HERE???????
-
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear(renderer);
-    display::genBackground();
+    genBackground();
 
-        
     if (animate_sep_step < dungeon_data->numIters) {
 
         // total animation time should take max_sec ns (i believe it's ns)
-        int max_sec = 20000; // 20 seconds, felt like a good balance
+        int max_sec = 10000; // 20 seconds, felt like a good balance
         int iter_delay = max_sec / dungeon_data->numIters;
 
         rectangle_t* iter_rooms = room_data[animate_sep_step];
         for (int curr_room = 0; curr_room < dungeon_data->numRooms; curr_room++) {
-            renderRoom(iter_rooms[curr_room]);
+            renderRoom(iter_rooms[curr_room], gRoom, gSides);
         }
-        printf("sep_iter: %d iter_delay: %d\n",animate_sep_step, iter_delay);
+        //printf("sep_iter: %d iter_delay: %d\n",animate_sep_step, iter_delay);
+        // render the loading bar
+        float prog = (float)animate_sep_step / (dungeon_data->numIters - 1);
+        renderLoadBar(prog, gRed, renderer);
         SDL_RenderPresent(renderer);
         SDL_Delay(iter_delay);
         return 0;
     }
+    SDL_Delay(1000);
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderClear(renderer);
+    genBackground();
+    // draw last iteration but main rooms red
+    for (int curr_room = 0; curr_room < dungeon_data->numRooms; curr_room++) {
+        rectangle_t room = dungeon_data->rooms[curr_room];
+        if ((room.status & BIT_MAINROOM) != 0)
+            renderRoom(room, gMain, gBlack);
+        else
+            renderRoom(room, gRoom, gSides);
+    }
+    SDL_RenderPresent(renderer);
+    SDL_Delay(1000);
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderClear(renderer);
+    genBackground();
+    // draw just main rooms
+    for (int curr_room = 0; curr_room < dungeon_data->numMainRooms; curr_room++) {
+        renderRoom(dungeon_data->rooms[dungeon_data->mainRoomIndices[curr_room]], gMain, gBlack);
+    }
+    SDL_RenderPresent(renderer);
+    SDL_Delay(1000);
+    // then add in the dela graph
+    SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
+    rectangle_t roomsrc;
+    rectangle_t roomdest;
+    for (int curr_edge = 0; curr_edge < mst_dela_data->dela_edges; curr_edge++) {    
+        roomsrc = dungeon_data->rooms[mst_dela_data->dela[curr_edge].src];
+        roomdest = dungeon_data->rooms[mst_dela_data->dela[curr_edge].dest];
+        renderEdge(roomsrc, roomdest);
+    }
+    SDL_RenderPresent(renderer);
+    SDL_Delay(750);
+    // clear and do main rooms plus mst graph
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderClear(renderer);
+    genBackground();
+    for (int curr_room = 0; curr_room < dungeon_data->numMainRooms; curr_room++) {
+        renderRoom(dungeon_data->rooms[dungeon_data->mainRoomIndices[curr_room]], gMain, gBlack);
+    }
+    SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
+    for (int curr_edge = 0; curr_edge < mst_dela_data->mst_edges; curr_edge++) {    
+        roomsrc = dungeon_data->rooms[mst_dela_data->mst[curr_edge].src];
+        roomdest = dungeon_data->rooms[mst_dela_data->mst[curr_edge].dest];
+        renderEdge(roomsrc, roomdest);
+    }
+    SDL_RenderPresent(renderer);
+    SDL_Delay(1000);
+    // clear and draw the red line hallways with main rooms
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderClear(renderer);
+    genBackground();
+    for (int curr_room = 0; curr_room < dungeon_data->numMainRooms; curr_room++) {
+        renderRoom(dungeon_data->rooms[dungeon_data->mainRoomIndices[curr_room]], gMain, gBlack);
+    }
+    renderHallLine(dungeon_data->numHallways);
+    SDL_RenderPresent(renderer);
+    SDL_Delay(1000);
+    // clear and draw main and included rooms below red lines
+    SDL_RenderClear(renderer);
+    genBackground();
+    for (int curr_room = 0; curr_room < dungeon_data->numRooms; curr_room++) {
+        rectangle_t room = dungeon_data->rooms[curr_room];
+        if (room.status & (BIT_MAINROOM))
+            renderRoom(room, gMain, gBlack);
+        else if (room.status & (BIT_INCLUDED))
+            renderRoom(room, gRoom, gSides);
+    }
+    renderHallLine(dungeon_data->numHallways);
+    SDL_RenderPresent(renderer);
+    SDL_Delay(1000);
+    // clear and draw main and included rooms above full halls
+    SDL_RenderClear(renderer);
+    renderHallFull(dungeon_data->numHallways);
+    genBackground();
+    for (int curr_room = 0; curr_room < dungeon_data->numRooms; curr_room++) {
+        rectangle_t room = dungeon_data->rooms[curr_room];
+        if (room.status & (BIT_MAINROOM))
+            renderRoom(room, gMain, gBlack);
+        else if (room.status & (BIT_INCLUDED))
+            renderRoom(room, gRoom, gSides);
+    }
+    // setting render vars to match end of animation
+    room_view = 2;
+    hall_type = 0;
+    show_hallways = dungeon_data->numHallways;
+    SDL_RenderPresent(renderer);
+    SDL_Delay(1000);
     return 1;
 }
 
@@ -622,16 +811,13 @@ int display::animation(int animate_sep_step) {
  */
 void display::OnCleanup() {
     SDL_DestroyTexture(gSides);
-
     SDL_DestroyTexture(gRoom);
-
     SDL_DestroyTexture(gGrey);
-
     SDL_DestroyTexture(gRed);
-
+    SDL_DestroyTexture(gMain);
+    SDL_DestroyTexture(gHall);
+    SDL_DestroyTexture(gBlack);
     SDL_DestroyRenderer(renderer);
-
     SDL_DestroyWindow(sdlwindow);
-
     SDL_Quit();
 }
