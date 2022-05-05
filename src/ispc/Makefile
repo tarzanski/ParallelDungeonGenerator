@@ -12,7 +12,7 @@ OBJS+=$(TASKSYS_OBJ)
 OBJDIR=objs
 
 CXX = g++ -m64 -std=c++11
-CXXFLAGS = -L ../../local/lib -I include/SDL2 -Wall `sdl2-config --cflags --libs`#-O3
+CXXFLAGS = -L ../../../local/lib -I include/SDL2 -Wall `sdl2-config --cflags --libs`#-O3
 ISPC = ispc
 # note: change target to sse4 for SSE capable machines
 ISPCFLAGS=-O2 --target=avx1-i32x8 --arch=x86-64
