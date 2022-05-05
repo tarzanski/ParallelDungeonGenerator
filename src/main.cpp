@@ -62,6 +62,7 @@ int main(int argc, char** argv) {
     double generate_time = 0;
     double time_difference = 0;
 
+
     dungeon_t d;
     dungeon_t *dungeon = &d;
     double_edge_t md;
@@ -93,6 +94,9 @@ int main(int argc, char** argv) {
 
     float quality = get_solution_quality(dungeon);
     printf("Dungeon solution quality (lower is better: %f\n", quality);
+
+    generate_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
+    printf("Dungeon Generation Time: %lfs\n", generate_time);
 
     // printf("******** MAIN ROOM IDXS ********\n");
     // for (int i = 0; i < dungeon->numMainRooms; i++) {
