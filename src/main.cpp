@@ -95,20 +95,6 @@ int main(int argc, char** argv) {
     float quality = get_solution_quality(dungeon);
     printf("Dungeon solution quality (lower is better: %f\n", quality);
 
-    generate_time += std::chrono::duration_cast<dsec>(Clock::now() - init_start).count();
-    printf("Dungeon Generation Time: %lfs\n", generate_time);
-
-    // printf("******** MAIN ROOM IDXS ********\n");
-    // for (int i = 0; i < dungeon->numMainRooms; i++) {
-    //     printf("%d\n", dungeon->mainRoomIndices[i]);
-    // }
-
-    // printf("******** ALL ROOMS ********\n");
-    // for (int i = 0; i < dungeon->numRooms; i++) {
-    //     printf("Idx: %d  \t Include: %d\n", i, dungeon->rooms[i].include);
-    // }
-
-
     display disp(dungeon);
 
     printf("*****STARTING GUI*****\n");
