@@ -1,5 +1,9 @@
 # Parallel Dungeon Generation
 Larry Geng and Aleksander Tarczynski
+
+Final report: https://github.com/tarzanski/ParallelDungeonGenerator/blob/main/Final%20Project%20Report.pdf
+
+Final video: https://drive.google.com/file/d/1xwf4xca5ZWAR-SLOHAwFs6nYDVThZbNI/view?usp=sharing
 # Summary
 We are going to develop a parallel version of a procedural 2-dimensional dungeon generation algorithm in an effort to find drastic improvements that would allow for much larger scale workloads. We plan to run the project on the NVIDIA GPUs on the GHC cluster and compare the results to that of an ISPC implementation run on the GHC cluster CPUs.
 # Background
